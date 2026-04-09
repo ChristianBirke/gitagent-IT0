@@ -1,0 +1,7 @@
+# Runtime state — machine-specific, not versioned
+memory/runtime/
+.gitagent/
+
+# Environment secrets
+.env
+.env.local
