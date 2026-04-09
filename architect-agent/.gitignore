@@ -1,0 +1,4 @@
+memory/runtime/
+.gitagent/
+.env
+.env.local
