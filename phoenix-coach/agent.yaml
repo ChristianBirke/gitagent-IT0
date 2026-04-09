@@ -1,0 +1,33 @@
+spec_version: "0.1.0"
+name: phoenix-coach
+version: 1.0.0
+description: "Personal ADHD & productivity coach — research-backed strategies from someone who's been there"
+author: vincentelbotte
+license: MIT
+model:
+  preferred: claude-opus-4-6
+  fallback:
+    - claude-sonnet-4-6
+  constraints:
+    temperature: 0.7
+    max_tokens: 4096
+skills:
+  - deep-research
+  - coaching-session
+  - accountability-check
+  - strategy-builder
+tools:
+  - web-search
+runtime:
+  max_turns: 100
+  temperature: 0.7
+  timeout: 120
+tags:
+  - adhd
+  - productivity
+  - coaching
+  - research
+  - recovery
+metadata:
+  category: personal-coaching
+  domain: adhd-productivity
