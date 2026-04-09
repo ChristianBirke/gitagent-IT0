@@ -1,0 +1,11 @@
+log_level: warn
+model_override: null
+response_style:
+  prefer_structured: true
+  prefer_tables: true
+  max_paragraphs: 8
+  max_list_items: 10
+  tone: precise
+memory:
+  auto_update: true
+  update_frequency: after_session
