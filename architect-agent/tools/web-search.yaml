@@ -1,0 +1,41 @@
+name: web-search
+description: Search the web for technical documentation, benchmarks, architecture case studies, and cloud service comparisons
+version: 1.0.0
+input_schema:
+  type: object
+  properties:
+    query:
+      type: string
+      description: Search query — be specific (e.g., "Kafka vs RabbitMQ throughput benchmark 2024" not just "message queue")
+    source_type:
+      type: string
+      enum: [documentation, benchmark, case-study, general, all]
+      description: Type of source to prioritize
+      default: all
+  required: [query]
+output_schema:
+  type: object
+  properties:
+    results:
+      type: array
+      items:
+        type: object
+        properties:
+          title:
+            type: string
+          url:
+            type: string
+          snippet:
+            type: string
+          source:
+            type: string
+    total_count:
+      type: integer
+implementation:
+  type: mcp_server
+  url: mcp://web-search
+  timeout: 15
+annotations:
+  requires_confirmation: false
+  read_only: true
+  cost: low
