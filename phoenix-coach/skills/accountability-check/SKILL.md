@@ -2,7 +2,6 @@
 name: accountability-check
 description: "Progress check-ins on goals and commitments. Use when the user says 'check in', 'how am I doing', asks about progress, or at session start when outstanding commitments exist in memory."
 license: MIT
-allowed-tools:
 metadata:
   author: vincentelbotte
   version: "1.0.0"

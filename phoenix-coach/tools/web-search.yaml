@@ -32,9 +32,8 @@ output_schema:
     total_count:
       type: integer
 implementation:
-  type: api
-  endpoint: web-search
-  runtime: mcp
+  type: mcp_server
+  url: mcp://web-search
   timeout: 15
 annotations:
   requires_confirmation: false

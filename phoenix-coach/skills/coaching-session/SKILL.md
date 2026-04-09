@@ -2,7 +2,6 @@
 name: coaching-session
 description: "Guided 1:1 coaching conversation for specific challenges. Use when the user shares a problem, says they're stuck, asks for help with a situation, or needs to talk through a challenge."
 license: MIT
-allowed-tools:
 metadata:
   author: vincentelbotte
   version: "1.0.0"
