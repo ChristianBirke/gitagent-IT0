@@ -1,0 +1,18 @@
+hooks:
+  on_session_start:
+    - script: scripts/load-session-context.sh
+      description: Load recent memory context and check for pending decisions
+      timeout: 10
+      fail_open: true
+
+  post_response:
+    - script: scripts/update-memory.sh
+      description: Update memory with session takeaways after architecture interactions
+      timeout: 5
+      fail_open: true
+
+  on_error:
+    - script: scripts/handle-error.sh
+      description: Graceful error recovery — keep the architecture conversation going
+      timeout: 5
+      fail_open: true
