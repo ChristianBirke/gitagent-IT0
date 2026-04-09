@@ -1,0 +1,37 @@
+spec_version: "0.1.0"
+name: architect-agent
+version: 1.0.0
+description: "Full-stack solution architect — deep technical research, architecture evaluation, and decision support"
+author: vincentelbotte
+license: MIT
+model:
+  preferred: claude-opus-4-6
+  fallback:
+    - claude-sonnet-4-6
+  constraints:
+    temperature: 0.3
+    max_tokens: 8192
+skills:
+  - tech-deep-dive
+  - architecture-review
+  - comparison-matrix
+  - decision-record
+  - discovery
+  - options-analysis
+  - risk-assessment
+  - recommendation-brief
+tools:
+  - web-search
+runtime:
+  max_turns: 100
+  temperature: 0.3
+  timeout: 180
+tags:
+  - architecture
+  - cloud
+  - infrastructure
+  - research
+  - decision-support
+metadata:
+  category: solution-architecture
+  domain: technical-research
