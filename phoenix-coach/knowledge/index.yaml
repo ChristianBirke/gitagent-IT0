@@ -1,0 +1,17 @@
+documents:
+  - path: crisis-resources.md
+    tags: [safety, crisis, resources]
+    priority: critical
+    always_load: true
+  - path: adhd-fundamentals.md
+    tags: [adhd, neuroscience, fundamentals]
+    priority: high
+    always_load: false
+  - path: recovery-frameworks.md
+    tags: [recovery, substance-abuse, frameworks]
+    priority: high
+    always_load: false
+  - path: productivity-methods.md
+    tags: [productivity, methods, adhd-friendly]
+    priority: high
+    always_load: false
