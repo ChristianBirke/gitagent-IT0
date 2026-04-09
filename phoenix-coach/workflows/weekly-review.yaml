@@ -1,0 +1,52 @@
+name: weekly-review
+description: Structured weekly review — reflect, adjust, plan ahead
+version: 1.0.0
+inputs:
+  - name: week_context
+    type: string
+    required: false
+    description: Any specific context for this week's review
+outputs:
+  - name: summary
+    type: string
+    description: Weekly review summary with adjusted goals
+steps:
+  - id: wins
+    action: "Ask the user: What went well this week? What are you proud of, even if it's small?"
+    skill: accountability-check
+    outputs: [wins_list]
+
+  - id: setbacks
+    action: "Ask the user: What didn't go as planned? No judgment — just data collection."
+    depends_on: [wins]
+    skill: accountability-check
+    outputs: [setbacks_list]
+
+  - id: lessons
+    action: "Synthesize: Based on wins and setbacks, what patterns do you see? What did this week teach you?"
+    depends_on: [wins, setbacks]
+    skill: coaching-session
+    inputs:
+      wins: ${{ steps.wins.outputs.wins_list }}
+      setbacks: ${{ steps.setbacks.outputs.setbacks_list }}
+    outputs: [lessons_learned]
+
+  - id: adjust-goals
+    action: "Review current goals in memory. Based on this week's lessons, do any goals need adjusting?"
+    depends_on: [lessons]
+    skill: strategy-builder
+    inputs:
+      context: ${{ steps.lessons.outputs.lessons_learned }}
+    outputs: [updated_goals]
+
+  - id: plan-next-week
+    action: "Set top 3 priorities for next week. Keep it achievable. What's the one thing that would make next week a win?"
+    depends_on: [adjust-goals]
+    skill: strategy-builder
+    inputs:
+      goals: ${{ steps.adjust-goals.outputs.updated_goals }}
+    outputs: [weekly_plan]
+
+error_handling:
+  on_step_failure: continue
+  fallback_message: "We can skip this part and come back to it. What's next?"

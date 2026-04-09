@@ -1,0 +1,37 @@
+name: morning-kickstart
+description: Quick morning check-in — energy, priorities, blockers
+version: 1.0.0
+inputs:
+  - name: day_context
+    type: string
+    required: false
+    description: Any specific context for today
+outputs:
+  - name: daily_plan
+    type: string
+    description: Today's priorities and identified blockers
+steps:
+  - id: energy-check
+    action: "Ask the user: How are you feeling this morning? Scale of 1-5, where 1 is 'barely functional' and 5 is 'let's go.'"
+    skill: coaching-session
+    outputs: [energy_level]
+
+  - id: priorities
+    action: "Based on energy level, help the user pick 1-3 priorities for today. If energy is low (1-2), suggest just one thing."
+    depends_on: [energy-check]
+    skill: strategy-builder
+    inputs:
+      energy: ${{ steps.energy-check.outputs.energy_level }}
+    outputs: [today_priorities]
+
+  - id: blockers
+    action: "Ask: Anything likely to get in the way today? Help identify one thing they can do right now to reduce that risk."
+    depends_on: [priorities]
+    skill: coaching-session
+    inputs:
+      priorities: ${{ steps.priorities.outputs.today_priorities }}
+    outputs: [identified_blockers, mitigation]
+
+error_handling:
+  on_step_failure: continue
+  fallback_message: "No worries — just pick one thing and start. We can figure out the rest later."
