@@ -1,0 +1,30 @@
+name: quick-decision
+description: Fast decision support — compare options and record the outcome. Use when options are already defined and the team needs structured evaluation and documentation.
+version: 1.0.0
+inputs:
+  - name: options_to_compare
+    type: string
+    required: false
+    description: The options to compare (e.g., "Kafka vs RabbitMQ vs SQS")
+outputs:
+  - name: adr
+    type: string
+    description: Architecture Decision Record documenting the choice
+steps:
+  - id: comparison-matrix
+    action: "Build a weighted comparison matrix for the options. Identify criteria, weights, score each option with evidence, and recommend."
+    skill: comparison-matrix
+    outputs: [matrix, recommendation]
+
+  - id: decision-record
+    action: "Generate an ADR documenting the recommended option from the comparison matrix. Include context, all options considered, decision rationale, and consequences."
+    depends_on: [comparison-matrix]
+    skill: decision-record
+    inputs:
+      comparison: ${{ steps.comparison-matrix.outputs.matrix }}
+      recommendation: ${{ steps.comparison-matrix.outputs.recommendation }}
+    outputs: [adr]
+
+error_handling:
+  on_step_failure: continue
+  fallback_message: "Hit a snag — let's document what we have so far."

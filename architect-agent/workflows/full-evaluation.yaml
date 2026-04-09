@@ -1,0 +1,56 @@
+name: full-evaluation
+description: Complete architecture evaluation — from discovery through recommendation. Use for significant technology decisions or new system designs.
+version: 1.0.0
+inputs:
+  - name: problem_statement
+    type: string
+    required: false
+    description: Brief description of the architecture problem or decision
+outputs:
+  - name: recommendation
+    type: string
+    description: Final recommendation brief ready for stakeholder review
+steps:
+  - id: discovery
+    action: "Run a structured discovery session to understand the problem, constraints, scale, and priorities. Produce a discovery summary."
+    skill: discovery
+    outputs: [discovery_summary]
+
+  - id: architecture-review
+    action: "Review the current or proposed architecture based on the discovery summary. Identify risks, bottlenecks, and improvement opportunities."
+    depends_on: [discovery]
+    skill: architecture-review
+    inputs:
+      context: ${{ steps.discovery.outputs.discovery_summary }}
+    outputs: [review_findings]
+
+  - id: options-analysis
+    action: "Present 3 options (lean, balanced, premium) addressing the findings from the architecture review. Each option should be genuinely viable."
+    depends_on: [architecture-review]
+    skill: options-analysis
+    inputs:
+      context: ${{ steps.discovery.outputs.discovery_summary }}
+      findings: ${{ steps.architecture-review.outputs.review_findings }}
+    outputs: [options]
+
+  - id: risk-assessment
+    action: "Assess risks for the recommended option from options analysis. Produce a risk register with mitigations for all scores >= 9."
+    depends_on: [options-analysis]
+    skill: risk-assessment
+    inputs:
+      option: ${{ steps.options-analysis.outputs.options }}
+    outputs: [risk_register]
+
+  - id: recommendation-brief
+    action: "Generate a one-page executive summary combining the discovery context, chosen option, and top risks with mitigations. Suitable for non-technical leadership."
+    depends_on: [risk-assessment]
+    skill: recommendation-brief
+    inputs:
+      discovery: ${{ steps.discovery.outputs.discovery_summary }}
+      option: ${{ steps.options-analysis.outputs.options }}
+      risks: ${{ steps.risk-assessment.outputs.risk_register }}
+    outputs: [recommendation]
+
+error_handling:
+  on_step_failure: continue
+  fallback_message: "A step hit an issue — let's continue with what we have and note the gap."
