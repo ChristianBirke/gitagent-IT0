@@ -1,0 +1,17 @@
+documents:
+  - path: security-baselines.md
+    tags: [security, compliance, zero-trust]
+    priority: critical
+    always_load: true
+  - path: cloud-patterns.md
+    tags: [cloud, patterns, architecture]
+    priority: high
+    always_load: false
+  - path: distributed-systems.md
+    tags: [distributed, consistency, partitioning]
+    priority: high
+    always_load: false
+  - path: cost-optimization.md
+    tags: [cost, cloud, optimization]
+    priority: high
+    always_load: false
