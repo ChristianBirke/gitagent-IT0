@@ -1,0 +1,42 @@
+name: web-search
+description: Search the web for research studies, ADHD strategies, productivity methods, and recovery frameworks
+version: 1.0.0
+input_schema:
+  type: object
+  properties:
+    query:
+      type: string
+      description: Search query — be specific (e.g., "ADHD time-boxing RCT" not just "ADHD focus")
+    source_type:
+      type: string
+      enum: [academic, general, all]
+      description: Prefer academic sources for research, general for practical strategies
+      default: all
+  required: [query]
+output_schema:
+  type: object
+  properties:
+    results:
+      type: array
+      items:
+        type: object
+        properties:
+          title:
+            type: string
+          url:
+            type: string
+          snippet:
+            type: string
+          source:
+            type: string
+    total_count:
+      type: integer
+implementation:
+  type: api
+  endpoint: web-search
+  runtime: mcp
+  timeout: 15
+annotations:
+  requires_confirmation: false
+  read_only: true
+  cost: low
