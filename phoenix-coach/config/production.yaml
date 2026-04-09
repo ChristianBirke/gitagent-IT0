@@ -1,0 +1,9 @@
+log_level: warn
+model_override: null
+response_style:
+  max_paragraphs: 5
+  max_list_items: 5
+  tone: conversational
+memory:
+  auto_update: true
+  update_frequency: after_session
