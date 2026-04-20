@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GSD Service Blueprint — gitagent</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --cyan: #39d2c0;
+    --pink: #f778ba;
+    --lane-user: #1a2740;
+    --lane-orch: #1a1f2e;
+    --lane-agent: #1f1a2e;
+    --lane-fs: #1a2e1f;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  .header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+  .header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .header h1 span { color: var(--accent); }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .control-group { display: flex; align-items: center; gap: 6px; }
+  .control-group label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  select, button { font-family: inherit; font-size: 12px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  select:hover, button:hover { border-color: var(--accent); }
+  .preset-btn { font-size: 11px; padding: 4px 8px; border-radius: 4px; }
+  .preset-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  .main { flex: 1; display: flex; overflow: hidden; }
+
+  .sidebar { width: 260px; border-right: 1px solid var(--border); background: var(--surface); overflow-y: auto; flex-shrink: 0; padding: 12px; }
+  .sidebar h3 { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 0 6px; }
+  .sidebar h3:first-child { margin-top: 0; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; border-radius: 4px; padding: 4px 6px; }
+  .legend-item:hover { background: var(--surface2); }
+  .legend-item.highlighted { background: rgba(88,166,255,0.15); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  .state-file { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s; }
+  .state-file:hover, .state-file.active { border-color: var(--accent); background: rgba(88,166,255,0.08); }
+  .state-file .fname { font-family: 'SF Mono', 'Fira Code', monospace; font-weight: 600; color: var(--accent); font-size: 11px; }
+  .state-file .fdesc { color: var(--text-dim); margin-top: 2px; }
+  .state-file .ffields { color: var(--text); margin-top: 4px; font-family: monospace; font-size: 10px; line-height: 1.5; white-space: pre; }
+
+  .route-item { padding: 6px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 4px; cursor: pointer; border-left: 3px solid transparent; }
+  .route-item:hover, .route-item.active { background: var(--surface2); border-left-color: var(--accent); }
+  .route-item .route-num { color: var(--accent); font-weight: 700; }
+  .route-item .route-cond { color: var(--text-dim); font-size: 10px; display: block; margin-top: 2px; }
+
+  .blueprint-container { flex: 1; overflow: auto; position: relative; }
+  .blueprint { position: relative; }
+
+  .swim-lane { position: absolute; left: 0; right: 0; border-bottom: 1px solid var(--border); }
+  .lane-label { position: absolute; left: 0; top: 0; bottom: 0; width: 100px; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; text-orientation: mixed; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; border-right: 1px solid var(--border); z-index: 2; }
+
+  .node { position: absolute; border-radius: 8px; padding: 8px 12px; font-size: 11px; cursor: pointer; transition: all 0.15s; z-index: 3; text-align: center; min-width: 90px; border: 1px solid; }
+  .node:hover { transform: scale(1.05); z-index: 10; }
+  .node.dimmed { opacity: 0.15; }
+  .node.highlighted { box-shadow: 0 0 12px rgba(88,166,255,0.5); transform: scale(1.05); z-index: 10; }
+  .node .node-title { font-weight: 600; font-size: 11px; white-space: nowrap; }
+  .node .node-sub { font-size: 9px; opacity: 0.7; margin-top: 2px; }
+
+  .node.user-action { background: rgba(88,166,255,0.15); border-color: var(--accent); color: var(--accent); }
+  .node.orchestrator { background: rgba(214,153,34,0.15); border-color: var(--orange); color: var(--orange); }
+  .node.subagent { background: rgba(188,140,255,0.15); border-color: var(--purple); color: var(--purple); }
+  .node.file-write { background: rgba(63,185,80,0.15); border-color: var(--green); color: var(--green); }
+  .node.gate { background: rgba(248,81,73,0.15); border-color: var(--red); color: var(--red); border-style: dashed; }
+  .node.decision { background: rgba(57,210,192,0.15); border-color: var(--cyan); color: var(--cyan); border-radius: 4px; }
+  .node.commit { background: rgba(247,120,186,0.15); border-color: var(--pink); color: var(--pink); border-radius: 50%; min-width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; padding: 4px; }
+
+  svg.arrows { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 2; }
+
+  .tooltip { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-size: 12px; max-width: 320px; z-index: 100; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: none; }
+  .tooltip .tt-title { font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+  .tooltip .tt-body { color: var(--text-dim); line-height: 1.5; }
+
+  .prompt-bar { border-top: 1px solid var(--border); background: var(--surface); padding: 10px 20px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; }
+  .prompt-text { flex: 1; font-family: 'SF Mono', monospace; font-size: 11px; color: var(--text-dim); line-height: 1.5; max-height: 60px; overflow-y: auto; }
+  .copy-btn { background: var(--accent); color: #000; border: none; border-radius: 6px; padding: 6px 14px; font-weight: 600; font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .copy-btn:hover { opacity: 0.9; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>GSD</span> Service Blueprint</h1>
+  <div class="controls">
+    <div class="control-group">
+      <label>Workflow</label>
+      <select id="workflowSelect">
+        <option value="new-project">New Project Init</option>
+        <option value="phase-lifecycle">Phase Lifecycle</option>
+        <option value="routing">Next Routing Logic</option>
+        <option value="agents">Agent Spawning</option>
+        <option value="state">State Management</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Detail</label>
+      <select id="detailLevel">
+        <option value="full">Full</option>
+        <option value="compact">Compact</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Presets</label>
+      <button class="preset-btn" data-preset="overview">Overview</button>
+      <button class="preset-btn" data-preset="research">Research Flow</button>
+      <button class="preset-btn" data-preset="execution">Execution</button>
+      <button class="preset-btn" data-preset="safety">Safety Gates</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <h3>Swim Lanes</h3>
+    <div class="legend-item" data-highlight="user-action"><div class="legend-dot" style="background:var(--accent)"></div>User Action</div>
+    <div class="legend-item" data-highlight="orchestrator"><div class="legend-dot" style="background:var(--orange)"></div>Orchestrator</div>
+    <div class="legend-item" data-highlight="subagent"><div class="legend-dot" style="background:var(--purple)"></div>Subagent</div>
+    <div class="legend-item" data-highlight="file-write"><div class="legend-dot" style="background:var(--green)"></div>File System</div>
+    <h3>Node Types</h3>
+    <div class="legend-item" data-highlight="gate"><div class="legend-dot" style="background:var(--red);border-radius:2px"></div>Safety Gate</div>
+    <div class="legend-item" data-highlight="decision"><div class="legend-dot" style="background:var(--cyan);border-radius:2px"></div>Decision Point</div>
+    <div class="legend-item" data-highlight="commit"><div class="legend-dot" style="background:var(--pink)"></div>Git Commit</div>
+    <h3>State Files</h3>
+    <div id="statePanel"></div>
+    <h3>/gsd-next Routes</h3>
+    <div id="routeList"></div>
+  </div>
+
+  <div class="blueprint-container" id="blueprintContainer">
+    <div class="blueprint" id="blueprint">
+      <div id="swimLanes"></div>
+      <svg class="arrows" id="arrows"></svg>
+    </div>
+  </div>
+</div>
+
+<div class="prompt-bar">
+  <div class="prompt-text" id="promptOutput">Select a workflow to explore the GSD service blueprint.</div>
+  <button class="copy-btn" id="copyBtn">Copy</button>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const state = {
+  workflow: 'new-project',
+  detail: 'full',
+  highlight: null,
+  selectedNode: null,
+  selectedFile: null,
+  selectedRoute: null
+};
+
+const DEFAULTS = { workflow: 'new-project', detail: 'full' };
+
+const STATE_FILES = [
+  { name: 'PROJECT.md', desc: 'Living project context', fields: 'core_value, requirements\n(validated/active/oos),\nconstraints, key_decisions', reads: ['roadmapper','planner','verifier'], writes: ['new-project','complete-milestone'] },
+  { name: 'config.json', desc: 'Workflow preferences', fields: 'mode, granularity,\nparallelization, commit_docs,\nmodel_profile, workflow.*', reads: ['all-workflows'], writes: ['new-project','settings'] },
+  { name: 'REQUIREMENTS.md', desc: 'Checkable requirements', fields: 'v1_reqs (REQ-IDs),\nv2_reqs, out_of_scope,\ntraceability table', reads: ['roadmapper','planner','verifier'], writes: ['new-project','roadmapper'] },
+  { name: 'ROADMAP.md', desc: 'Phase structure', fields: 'phases[], per-phase:\n  goal, requirements[],\n  success_criteria[],\n  depends_on[]', reads: ['plan-phase','execute','next'], writes: ['roadmapper','import'] },
+  { name: 'STATE.md', desc: 'Session continuity', fields: 'current_phase, plan_of,\nprogress%, status,\nsession_continuity,\npending_todos', reads: ['resume-work','next','progress'], writes: ['every-workflow-transition'] },
+  { name: 'HANDOFF.json', desc: 'Structured pause context', fields: 'status, phase, plan,\ntask, blockers,\nuncommitted_files,\ncontext_notes', reads: ['resume-work'], writes: ['pause-work'] },
+];
+
+const ROUTES = [
+  { num: 1, name: 'No phases on disk', condition: 'ROADMAP has phases but no phase dirs exist', action: '/gsd-discuss-phase <first>' },
+  { num: 2, name: 'No context yet', condition: 'Phase dir exists, no CONTEXT.md or RESEARCH.md', action: '/gsd-discuss-phase <N>' },
+  { num: 3, name: 'Context, no plans', condition: 'Has CONTEXT.md but no PLAN.md files', action: '/gsd-plan-phase <N>' },
+  { num: 4, name: 'Plans incomplete', condition: 'Plans exist but missing SUMMARY.md', action: '/gsd-execute-phase <N>' },
+  { num: 5, name: 'All plans done', condition: 'All plans have matching summaries', action: '/gsd-verify-work' },
+  { num: 6, name: 'Phase done, next exists', condition: 'Current phase complete, next in ROADMAP', action: '/gsd-discuss-phase <N+1>' },
+  { num: 7, name: 'All phases done', condition: 'Every phase is complete', action: '/gsd-complete-milestone' },
+  { num: 8, name: 'Paused', condition: 'STATE.md shows paused_at', action: '/gsd-resume-work' },
+];
+
+const WORKFLOWS = {
+  'new-project': {
+    title: 'New Project Initialization',
+    desc: 'questioning \u2192 research \u2192 requirements \u2192 roadmap',
+    height: 950, width: 1500,
+    lanes: [
+      { name: 'USER', color: 'var(--lane-user)', y: 0, h: 180 },
+      { name: 'ORCHESTRATOR', color: 'var(--lane-orch)', y: 180, h: 220 },
+      { name: 'SUBAGENTS', color: 'var(--lane-agent)', y: 400, h: 250 },
+      { name: 'FILE SYSTEM', color: 'var(--lane-fs)', y: 650, h: 200 },
+    ],
+    nodes: [
+      { id:'u1', type:'user-action', x:120, y:50, title:'/gsd-new-project', sub:'invoke', tip:'User invokes the new-project skill to start initialization' },
+      { id:'u2', type:'user-action', x:300, y:50, title:'Describe idea', sub:'freeform text', tip:'User describes what they want to build in their own words' },
+      { id:'u3', type:'user-action', x:460, y:50, title:'Answer questions', sub:'AskUserQuestion', tip:'Orchestrator probes with follow-up questions using AskUserQuestion with 2-4 options' },
+      { id:'u4', type:'user-action', x:460, y:130, title:'Ready? gate', sub:'approve / explore', tip:'Decision gate: Create PROJECT.md or Keep exploring. Loops until user approves.' },
+      { id:'u5', type:'user-action', x:720, y:50, title:'Config choices', sub:'mode, granularity...', tip:'Round 1: Mode, Granularity, Execution, Git. Round 2: Research, Plan Check, Verifier, Models' },
+      { id:'u6', type:'user-action', x:890, y:50, title:'Research?', sub:'yes / skip', tip:'Choose whether to research domain ecosystem before requirements' },
+      { id:'u7', type:'user-action', x:1150, y:50, title:'Scope features', sub:'per-category v1/v2', tip:'For each feature category, select which features are v1 (build now), v2 (later), or out of scope' },
+      { id:'u8', type:'user-action', x:1340, y:50, title:'Approve roadmap', sub:'approve / adjust', tip:'Review proposed roadmap. Can approve, adjust phases, or review full file' },
+      { id:'o1', type:'orchestrator', x:120, y:220, title:'gsd-tools init', sub:'detect state', tip:'Runs gsd-tools.cjs init new-project. Detects: brownfield, git, codebase map, existing project' },
+      { id:'o2', type:'decision', x:220, y:280, title:'Brownfield?', sub:'', tip:'If existing code detected without codebase map: offer /gsd-map-codebase first' },
+      { id:'o3', type:'orchestrator', x:340, y:220, title:'Deep questioning', sub:'follow threads', tip:'Collaborative dream extraction. Challenge vagueness, make abstract concrete, surface assumptions' },
+      { id:'o4', type:'orchestrator', x:520, y:220, title:'Write PROJECT.md', sub:'synthesize', tip:'Synthesize all questioning context into PROJECT.md using template' },
+      { id:'o5', type:'orchestrator', x:720, y:220, title:'Collect config', sub:'2 rounds', tip:'Collect workflow preferences: mode, granularity, parallelization, git tracking, agents, models' },
+      { id:'o6', type:'orchestrator', x:890, y:220, title:'Research decision', sub:'route', tip:'If yes: spawn 4 parallel researchers. If skip: jump to requirements' },
+      { id:'o7', type:'orchestrator', x:1050, y:220, title:'Present findings', sub:'key findings', tip:'Display research summary: Stack, Table Stakes, Watch Out For' },
+      { id:'o8', type:'orchestrator', x:1150, y:220, title:'Build requirements', sub:'REQ-IDs', tip:'Generate REQUIREMENTS.md with categories, v1/v2/OOS, traceability table' },
+      { id:'o9', type:'orchestrator', x:1340, y:220, title:'Present roadmap', sub:'approval gate', tip:'Read ROADMAP.md from roadmapper, present inline with phase table' },
+      { id:'o10', type:'orchestrator', x:1420, y:310, title:'generate-claude-md', sub:'instruction file', tip:'Generates CLAUDE.md with GSD workflow guidance and project context' },
+      { id:'a1', type:'subagent', x:890, y:440, title:'Stack researcher', sub:'STACK.md', tip:'gsd-project-researcher: What is the standard 2025 stack? Specific libraries + versions' },
+      { id:'a2', type:'subagent', x:1000, y:440, title:'Features researcher', sub:'FEATURES.md', tip:'gsd-project-researcher: Table stakes vs differentiators vs anti-features' },
+      { id:'a3', type:'subagent', x:1110, y:440, title:'Arch researcher', sub:'ARCHITECTURE.md', tip:'gsd-project-researcher: Component boundaries, data flow, build order' },
+      { id:'a4', type:'subagent', x:1220, y:440, title:'Pitfalls researcher', sub:'PITFALLS.md', tip:'gsd-project-researcher: Common mistakes, warning signs, prevention' },
+      { id:'a5', type:'subagent', x:1050, y:540, title:'Synthesizer', sub:'SUMMARY.md', tip:'gsd-research-synthesizer: Combines all 4 research outputs into coherent summary' },
+      { id:'a6', type:'subagent', x:1340, y:440, title:'Roadmapper', sub:'ROADMAP.md', tip:'gsd-roadmapper: Derives phases from requirements, 100% coverage validation' },
+      { id:'f1', type:'file-write', x:520, y:700, title:'PROJECT.md', sub:'.planning/', tip:'What This Is, Core Value, Requirements, Constraints, Key Decisions' },
+      { id:'f2', type:'commit', x:610, y:710, title:'commit', sub:'', tip:'git commit: docs: initialize project' },
+      { id:'f3', type:'file-write', x:720, y:700, title:'config.json', sub:'.planning/', tip:'mode, granularity, parallelization, commit_docs, model_profile, workflow agents' },
+      { id:'f4', type:'commit', x:810, y:710, title:'commit', sub:'', tip:'git commit: chore: add project config' },
+      { id:'f5', type:'file-write', x:940, y:700, title:'research/', sub:'5 files', tip:'STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md, SUMMARY.md' },
+      { id:'f6', type:'commit', x:1030, y:710, title:'commit', sub:'', tip:'git commit: research files' },
+      { id:'f7', type:'file-write', x:1150, y:700, title:'REQUIREMENTS.md', sub:'.planning/', tip:'v1 requirements with REQ-IDs, v2 deferred, Out of Scope, Traceability' },
+      { id:'f8', type:'commit', x:1240, y:710, title:'commit', sub:'', tip:'git commit: docs: define v1 requirements' },
+      { id:'f9', type:'file-write', x:1340, y:700, title:'ROADMAP.md + STATE.md', sub:'.planning/', tip:'Roadmap with phases, STATE.md initialized, traceability updated' },
+      { id:'f10', type:'commit', x:1430, y:710, title:'commit', sub:'', tip:'git commit: docs: create roadmap (N phases) + CLAUDE.md' },
+    ],
+    arrows: [
+      ['u1','o1'],['o1','o2'],['o2','o3'],['u2','o3'],['o3','u3'],['u3','u4'],['u4','o4'],
+      ['o4','f1'],['f1','f2'],['u5','o5'],['o5','f3'],['f3','f4'],
+      ['u6','o6'],['o6','a1'],['o6','a2'],['o6','a3'],['o6','a4'],
+      ['a1','a5'],['a2','a5'],['a3','a5'],['a4','a5'],
+      ['a5','o7'],['a5','f5'],['f5','f6'],
+      ['o7','o8'],['u7','o8'],['o8','f7'],['f7','f8'],
+      ['o8','a6'],['a6','o9'],['a6','f9'],
+      ['u8','o9'],['o9','o10'],['o10','f10'],['f9','f10'],
+    ]
+  },
+
+  'phase-lifecycle': {
+    title: 'Phase Lifecycle',
+    desc: 'discuss \u2192 plan \u2192 execute \u2192 verify \u2192 complete',
+    height: 900, width: 1500,
+    lanes: [
+      { name: 'USER', color: 'var(--lane-user)', y: 0, h: 160 },
+      { name: 'ORCHESTRATOR', color: 'var(--lane-orch)', y: 160, h: 220 },
+      { name: 'SUBAGENTS', color: 'var(--lane-agent)', y: 380, h: 250 },
+      { name: 'FILE SYSTEM', color: 'var(--lane-fs)', y: 630, h: 180 },
+    ],
+    nodes: [
+      { id:'u1', type:'user-action', x:120, y:40, title:'/gsd-discuss', sub:'phase N', tip:'Gather context through adaptive questioning before planning' },
+      { id:'u2', type:'user-action', x:340, y:40, title:'/gsd-plan-phase', sub:'phase N', tip:'Create detailed PLAN.md with task breakdown and verification' },
+      { id:'u3', type:'user-action', x:620, y:40, title:'/gsd-execute-phase', sub:'phase N', tip:'Execute all plans with wave-based parallelization' },
+      { id:'u4', type:'user-action', x:950, y:40, title:'/gsd-verify-work', sub:'phase N', tip:'Validate built features through conversational UAT' },
+      { id:'u5', type:'user-action', x:1200, y:40, title:'Transition', sub:'\u2192 next phase', tip:'Internal workflow advances to next phase or completes milestone' },
+      { id:'u6', type:'user-action', x:1380, y:40, title:'/gsd-next', sub:'auto-detect', tip:'Zero-friction: detects state and routes automatically' },
+      { id:'o1', type:'orchestrator', x:120, y:200, title:'Discuss phase', sub:'adaptive Q&A', tip:'Questions adapt based on phase type (UI vs backend vs infra). Builds CONTEXT.md' },
+      { id:'o2', type:'gate', x:240, y:280, title:'Context check', sub:'CONTEXT.md?', tip:'Safety: plan-phase checks CONTEXT.md exists before planning' },
+      { id:'o3', type:'orchestrator', x:340, y:200, title:'Spawn researcher', sub:'if enabled', tip:'gsd-phase-researcher investigates how to implement this specific phase' },
+      { id:'o4', type:'orchestrator', x:460, y:200, title:'Spawn planner', sub:'PLAN.md', tip:'gsd-planner creates task breakdown with dependencies, waves, must-haves' },
+      { id:'o5', type:'orchestrator', x:560, y:280, title:'Plan checker', sub:'if enabled', tip:'gsd-plan-checker verifies plan will achieve the phase goal' },
+      { id:'o6', type:'orchestrator', x:620, y:200, title:'Wave executor', sub:'parallel plans', tip:'Groups plans into waves by depends_on. Parallel within wave, sequential between' },
+      { id:'o7', type:'orchestrator', x:760, y:200, title:'gsd-executor', sub:'per plan', tip:'Atomic: read \u2192 implement \u2192 test \u2192 commit. Handles deviations.' },
+      { id:'o8', type:'gate', x:860, y:280, title:'Checkpoint', sub:'deviation?', tip:'If executor deviates: creates .continue-here.md, flags for review' },
+      { id:'o9', type:'orchestrator', x:950, y:200, title:'Verify phase', sub:'goal-backward', tip:'gsd-verifier checks codebase delivers what phase promised' },
+      { id:'o10', type:'gate', x:1080, y:280, title:'PASS / FAIL', sub:'verification', tip:'If FAIL: blocks advancement. Must fix or --force to bypass.' },
+      { id:'o11', type:'orchestrator', x:1200, y:200, title:'Transition', sub:'update state', tip:'Update STATE.md, advance current_phase, check milestone complete' },
+      { id:'o12', type:'decision', x:1310, y:260, title:'More phases?', sub:'', tip:'If more phases: loop to discuss next. If all done: complete-milestone' },
+      { id:'a1', type:'subagent', x:340, y:420, title:'Phase researcher', sub:'RESEARCH.md', tip:'gsd-phase-researcher: domain patterns, libraries, gotchas for this phase' },
+      { id:'a2', type:'subagent', x:460, y:420, title:'Planner', sub:'PLAN.md', tip:'gsd-planner: task breakdown, dependency analysis, wave assignment' },
+      { id:'a3', type:'subagent', x:560, y:420, title:'Plan checker', sub:'pass/fail', tip:'gsd-plan-checker: goal-backward \u2014 will tasks achieve goal?' },
+      { id:'a4', type:'subagent', x:700, y:420, title:'Executor (W1)', sub:'wave 1', tip:'gsd-executor: atomic task execution with commits per task' },
+      { id:'a5', type:'subagent', x:820, y:420, title:'Executor (W2)', sub:'wave 2', tip:'gsd-executor: second wave, depends on wave 1 completion' },
+      { id:'a6', type:'subagent', x:700, y:530, title:'Executor (W1b)', sub:'parallel', tip:'Independent plans in same wave run in parallel' },
+      { id:'a7', type:'subagent', x:950, y:420, title:'Verifier', sub:'VERIFICATION.md', tip:'gsd-verifier: goal-backward analysis of delivered vs promised' },
+      { id:'f1', type:'file-write', x:120, y:680, title:'CONTEXT.md', sub:'decisions, approach', tip:'User decisions, approach choices, locked constraints' },
+      { id:'f2', type:'file-write', x:340, y:680, title:'RESEARCH.md', sub:'phase-specific', tip:'How to implement: patterns, libraries, gotchas' },
+      { id:'f3', type:'file-write', x:460, y:680, title:'PLAN.md', sub:'tasks + waves', tip:'Frontmatter: phase, plan, type, wave, depends_on, must_haves' },
+      { id:'f4', type:'file-write', x:760, y:680, title:'SUMMARY.md', sub:'per plan', tip:'Tasks completed, files changed, deviations noted' },
+      { id:'f5', type:'file-write', x:950, y:680, title:'VERIFICATION.md', sub:'pass/fail', tip:'Each success criterion checked against codebase' },
+      { id:'f6', type:'file-write', x:1200, y:680, title:'STATE.md', sub:'updated', tip:'Phase advanced, progress updated, session continuity refreshed' },
+    ],
+    arrows: [
+      ['u1','o1'],['o1','f1'],['o1','o2'],['o2','o3'],['u2','o3'],
+      ['o3','a1'],['a1','f2'],['o3','o4'],['o4','a2'],['a2','f3'],
+      ['o4','o5'],['o5','a3'],
+      ['u3','o6'],['o6','a4'],['o6','a6'],['a4','o7'],['a6','o7'],['o7','a5'],
+      ['o7','f4'],['o7','o8'],
+      ['u4','o9'],['o9','a7'],['a7','f5'],['o9','o10'],
+      ['o10','o11'],['u5','o11'],['o11','f6'],['o11','o12'],
+    ]
+  },
+
+  'routing': {
+    title: '/gsd-next Routing Logic',
+    desc: '8 routes based on artifact presence \u2014 zero-friction advancement',
+    height: 900, width: 1400,
+    lanes: [
+      { name: 'USER', color: 'var(--lane-user)', y: 0, h: 120 },
+      { name: 'ORCHESTRATOR', color: 'var(--lane-orch)', y: 120, h: 350 },
+      { name: 'SUBAGENTS', color: 'var(--lane-agent)', y: 470, h: 150 },
+      { name: 'FILE SYSTEM', color: 'var(--lane-fs)', y: 620, h: 200 },
+    ],
+    nodes: [
+      { id:'u1', type:'user-action', x:120, y:30, title:'/gsd-next', sub:'auto-detect', tip:'User calls /gsd-next. No arguments needed.' },
+      { id:'o1', type:'orchestrator', x:120, y:160, title:'Read state', sub:'gsd-tools state', tip:'Read STATE.md + ROADMAP.md to determine current position' },
+      { id:'g1', type:'gate', x:250, y:160, title:'Gate 1', sub:'checkpoint?', tip:'.continue-here.md exists? Hard stop unless --force' },
+      { id:'g2', type:'gate', x:370, y:160, title:'Gate 2', sub:'error state?', tip:'STATE.md status: error|failed? Hard stop unless --force' },
+      { id:'g3', type:'gate', x:490, y:160, title:'Gate 3', sub:'FAIL items?', tip:'VERIFICATION.md has unresolved FAIL? Hard stop unless --force' },
+      { id:'r1', type:'decision', x:200, y:290, title:'R1: No dirs', sub:'', tip:'ROADMAP has phases but no phase directories on disk' },
+      { id:'r2', type:'decision', x:320, y:290, title:'R2: No ctx', sub:'', tip:'Phase dir exists but no CONTEXT.md or RESEARCH.md' },
+      { id:'r3', type:'decision', x:440, y:290, title:'R3: No plans', sub:'', tip:'Has CONTEXT.md but no PLAN.md files' },
+      { id:'r4', type:'decision', x:560, y:290, title:'R4: Incomplete', sub:'', tip:'Plans exist but missing SUMMARY.md' },
+      { id:'r5', type:'decision', x:680, y:290, title:'R5: All done', sub:'', tip:'All plans have matching summaries' },
+      { id:'r6', type:'decision', x:800, y:290, title:'R6: Next phase', sub:'', tip:'Phase complete, next phase exists in ROADMAP' },
+      { id:'r7', type:'decision', x:920, y:290, title:'R7: All complete', sub:'', tip:'Every phase is complete' },
+      { id:'r8', type:'decision', x:1040, y:290, title:'R8: Paused', sub:'', tip:'STATE.md shows paused_at' },
+      { id:'d1', type:'orchestrator', x:200, y:400, title:'discuss-phase', sub:'first phase', tip:'/gsd-discuss-phase with first unstarted phase' },
+      { id:'d2', type:'orchestrator', x:320, y:400, title:'discuss-phase', sub:'current', tip:'/gsd-discuss-phase for current phase' },
+      { id:'d3', type:'orchestrator', x:440, y:400, title:'plan-phase', sub:'current', tip:'/gsd-plan-phase for current phase' },
+      { id:'d4', type:'orchestrator', x:560, y:400, title:'execute-phase', sub:'current', tip:'/gsd-execute-phase for current phase' },
+      { id:'d5', type:'orchestrator', x:680, y:400, title:'verify-work', sub:'', tip:'/gsd-verify-work for current phase' },
+      { id:'d6', type:'orchestrator', x:800, y:400, title:'discuss-phase', sub:'N+1', tip:'/gsd-discuss-phase for next phase' },
+      { id:'d7', type:'orchestrator', x:920, y:400, title:'complete-milestone', sub:'', tip:'/gsd-complete-milestone' },
+      { id:'d8', type:'orchestrator', x:1040, y:400, title:'resume-work', sub:'', tip:'/gsd-resume-work' },
+      { id:'f1', type:'file-write', x:140, y:670, title:'STATE.md', sub:'read', tip:'Current phase, progress, status, paused_at' },
+      { id:'f2', type:'file-write', x:280, y:670, title:'ROADMAP.md', sub:'read', tip:'Phase list, dependencies, structure' },
+      { id:'f3', type:'file-write', x:420, y:670, title:'CONTEXT.md', sub:'check exists', tip:'Per-phase: .planning/phases/NN-name/*-CONTEXT.md' },
+      { id:'f4', type:'file-write', x:560, y:670, title:'*-PLAN.md', sub:'check exists', tip:'Per-phase plan files' },
+      { id:'f5', type:'file-write', x:700, y:670, title:'*-SUMMARY.md', sub:'check exists', tip:'Per-plan execution summaries' },
+      { id:'f6', type:'file-write', x:840, y:670, title:'VERIFICATION.md', sub:'check exists', tip:'Phase verification results' },
+      { id:'f7', type:'file-write', x:980, y:670, title:'.continue-here', sub:'gate check', tip:'Unresolved checkpoint from previous session' },
+    ],
+    arrows: [
+      ['u1','o1'],['o1','g1'],['g1','g2'],['g2','g3'],
+      ['g3','r1'],['r1','r2'],['r2','r3'],['r3','r4'],['r4','r5'],['r5','r6'],['r6','r7'],['r7','r8'],
+      ['r1','d1'],['r2','d2'],['r3','d3'],['r4','d4'],['r5','d5'],['r6','d6'],['r7','d7'],['r8','d8'],
+      ['o1','f1'],['o1','f2'],
+    ]
+  },
+
+  'agents': {
+    title: 'Agent Spawning Patterns',
+    desc: 'Parallel researchers, sequential planner/checker, wave-based executors',
+    height: 850, width: 1400,
+    lanes: [
+      { name: 'USER', color: 'var(--lane-user)', y: 0, h: 100 },
+      { name: 'ORCHESTRATOR', color: 'var(--lane-orch)', y: 100, h: 180 },
+      { name: 'SUBAGENTS', color: 'var(--lane-agent)', y: 280, h: 400 },
+      { name: 'FILE SYSTEM', color: 'var(--lane-fs)', y: 680, h: 130 },
+    ],
+    nodes: [
+      { id:'u1', type:'user-action', x:120, y:30, title:'Trigger', sub:'new-project / plan / execute', tip:'Various commands spawn agents at different stages' },
+      { id:'o1', type:'orchestrator', x:120, y:140, title:'Research gate', sub:'config.workflow.research', tip:'Only spawns researchers if enabled in config.json' },
+      { id:'o2', type:'orchestrator', x:400, y:140, title:'Plan gate', sub:'plan-phase', tip:'Spawns planner after context/research gathered' },
+      { id:'o3', type:'orchestrator', x:650, y:140, title:'Check gate', sub:'plan_check', tip:'Only spawns plan-checker if enabled' },
+      { id:'o4', type:'orchestrator', x:850, y:140, title:'Execute gate', sub:'wave scheduler', tip:'Groups plans by wave, spawns executors in parallel within waves' },
+      { id:'o5', type:'orchestrator', x:1150, y:140, title:'Verify gate', sub:'config.workflow.verifier', tip:'Only spawns verifier if enabled' },
+      { id:'a1', type:'subagent', x:120, y:320, title:'Stack', sub:'researcher', tip:'model: sonnet/opus. Writes STACK.md. Uses Context7 + web search.' },
+      { id:'a2', type:'subagent', x:230, y:320, title:'Features', sub:'researcher', tip:'model: sonnet/opus. Writes FEATURES.md. Table stakes vs differentiators.' },
+      { id:'a3', type:'subagent', x:340, y:320, title:'Architecture', sub:'researcher', tip:'model: sonnet/opus. Writes ARCHITECTURE.md. Components + build order.' },
+      { id:'a4', type:'subagent', x:450, y:320, title:'Pitfalls', sub:'researcher', tip:'model: sonnet/opus. Writes PITFALLS.md. Mistakes + prevention.' },
+      { id:'a5', type:'subagent', x:280, y:430, title:'Synthesizer', sub:'SUMMARY.md', tip:'model: sonnet. Combines 4 outputs. Runs after all 4 complete.' },
+      { id:'a6', type:'subagent', x:400, y:430, title:'Phase researcher', sub:'RESEARCH.md', tip:'gsd-phase-researcher. Phase-specific investigation.' },
+      { id:'a7', type:'subagent', x:520, y:430, title:'Planner', sub:'PLAN.md', tip:'gsd-planner. Tasks, waves, must-haves. Uses Context7.' },
+      { id:'a8', type:'subagent', x:650, y:320, title:'Plan checker', sub:'pass/fail', tip:'gsd-plan-checker. Goal-backward analysis.' },
+      { id:'a9', type:'subagent', x:850, y:320, title:'Executor P1', sub:'wave 1', tip:'gsd-executor. Atomic commits per task.' },
+      { id:'a10', type:'subagent', x:960, y:320, title:'Executor P2', sub:'wave 1', tip:'Parallel with P1 \u2014 independent plans' },
+      { id:'a11', type:'subagent', x:850, y:430, title:'Executor P3', sub:'wave 2', tip:'Depends on wave 1 completion.' },
+      { id:'a12', type:'subagent', x:960, y:430, title:'Executor P4', sub:'wave 2', tip:'Parallel within wave 2' },
+      { id:'a13', type:'subagent', x:1150, y:320, title:'Verifier', sub:'VERIFICATION.md', tip:'gsd-verifier. Goal-backward analysis.' },
+      { id:'a14', type:'subagent', x:1150, y:430, title:'Code reviewer', sub:'REVIEW.md', tip:'gsd-code-reviewer. Optional. Bugs/security.' },
+      { id:'a15', type:'subagent', x:1260, y:430, title:'Security auditor', sub:'SECURITY.md', tip:'gsd-security-auditor. Optional. Threat mitigations.' },
+      { id:'f1', type:'file-write', x:280, y:710, title:'research/', sub:'5 files', tip:'STACK, FEATURES, ARCHITECTURE, PITFALLS, SUMMARY' },
+      { id:'f2', type:'file-write', x:520, y:710, title:'PLAN.md', sub:'per phase', tip:'Task breakdown with frontmatter' },
+      { id:'f3', type:'file-write', x:900, y:710, title:'SUMMARY.md', sub:'per plan', tip:'Execution results per plan' },
+      { id:'f4', type:'file-write', x:1150, y:710, title:'VERIFICATION.md', sub:'per phase', tip:'Pass/fail per success criterion' },
+    ],
+    arrows: [
+      ['u1','o1'],['o1','a1'],['o1','a2'],['o1','a3'],['o1','a4'],
+      ['a1','a5'],['a2','a5'],['a3','a5'],['a4','a5'],['a5','f1'],
+      ['o2','a6'],['a6','a7'],['o2','a7'],['a7','f2'],
+      ['o3','a8'],
+      ['o4','a9'],['o4','a10'],['a9','a11'],['a10','a12'],
+      ['a9','f3'],['a10','f3'],['a11','f3'],['a12','f3'],
+      ['o5','a13'],['a13','f4'],
+    ]
+  },
+
+  'state': {
+    title: 'State Management',
+    desc: 'How planning artifacts interconnect and flow between workflows',
+    height: 850, width: 1400,
+    lanes: [
+      { name: 'USER', color: 'var(--lane-user)', y: 0, h: 100 },
+      { name: 'ORCHESTRATOR', color: 'var(--lane-orch)', y: 100, h: 200 },
+      { name: 'SUBAGENTS', color: 'var(--lane-agent)', y: 300, h: 200 },
+      { name: 'FILE SYSTEM', color: 'var(--lane-fs)', y: 500, h: 280 },
+    ],
+    nodes: [
+      { id:'u1', type:'user-action', x:150, y:30, title:'Commands', sub:'invoke workflows', tip:'Each command reads and writes specific state files' },
+      { id:'o1', type:'orchestrator', x:120, y:140, title:'new-project', sub:'init all state', tip:'Creates: PROJECT.md, config.json, REQUIREMENTS.md, ROADMAP.md, STATE.md' },
+      { id:'o2', type:'orchestrator', x:310, y:140, title:'discuss-phase', sub:'gather context', tip:'Reads: PROJECT.md, ROADMAP.md. Writes: CONTEXT.md' },
+      { id:'o3', type:'orchestrator', x:500, y:140, title:'plan-phase', sub:'create plans', tip:'Reads: PROJECT.md, ROADMAP.md, CONTEXT.md. Writes: PLAN.md' },
+      { id:'o4', type:'orchestrator', x:690, y:140, title:'execute-phase', sub:'run plans', tip:'Reads: PLAN.md, config.json. Writes: SUMMARY.md, source code' },
+      { id:'o5', type:'orchestrator', x:880, y:140, title:'verify-work', sub:'check results', tip:'Reads: ROADMAP.md success criteria. Writes: VERIFICATION.md' },
+      { id:'o6', type:'orchestrator', x:1070, y:140, title:'transition', sub:'advance phase', tip:'Reads: VERIFICATION.md, ROADMAP.md. Writes: STATE.md, PROJECT.md' },
+      { id:'o7', type:'orchestrator', x:1230, y:140, title:'pause / resume', sub:'handoff', tip:'Pause writes HANDOFF.json. Resume reads then deletes.' },
+      { id:'a1', type:'subagent', x:120, y:340, title:'Researchers', sub:'read PROJECT', tip:'Read PROJECT.md for domain context. Write to research/' },
+      { id:'a2', type:'subagent', x:310, y:340, title:'Roadmapper', sub:'read REQS', tip:'Read REQUIREMENTS.md + research/. Write ROADMAP.md + STATE.md' },
+      { id:'a3', type:'subagent', x:500, y:340, title:'Planner', sub:'read ROADMAP', tip:'Read ROADMAP.md phase details. Write PLAN.md' },
+      { id:'a4', type:'subagent', x:690, y:340, title:'Executor', sub:'read PLAN', tip:'Read PLAN.md tasks. Write SUMMARY.md + source commits' },
+      { id:'a5', type:'subagent', x:880, y:340, title:'Verifier', sub:'read ROADMAP', tip:'Read success criteria. Write VERIFICATION.md' },
+      { id:'f1', type:'file-write', x:120, y:540, title:'PROJECT.md', sub:'core context', tip:'Source of truth for what we are building. Written at init and milestone.' },
+      { id:'f2', type:'file-write', x:280, y:540, title:'config.json', sub:'preferences', tip:'Controls mode, agents, models, granularity. Written at init.' },
+      { id:'f3', type:'file-write', x:440, y:540, title:'REQUIREMENTS.md', sub:'v1 scope', tip:'REQ-IDs map to phases. Written at init, updated by roadmapper.' },
+      { id:'f4', type:'file-write', x:600, y:540, title:'ROADMAP.md', sub:'phase structure', tip:'Phases with goals + success criteria. Written by roadmapper.' },
+      { id:'f5', type:'file-write', x:760, y:540, title:'STATE.md', sub:'position tracker', tip:'Current phase, plan progress, status. Written at every transition.' },
+      { id:'f6', type:'file-write', x:920, y:540, title:'CONTEXT.md', sub:'per-phase', tip:'Decisions, approach, locked constraints. Written by discuss-phase.' },
+      { id:'f7', type:'file-write', x:1080, y:540, title:'PLAN.md', sub:'per-phase', tip:'Frontmatter + tasks + waves + must-haves. Written by planner.' },
+      { id:'f8', type:'file-write', x:120, y:680, title:'SUMMARY.md', sub:'per-plan', tip:'Execution results per plan. Written by executor.' },
+      { id:'f9', type:'file-write', x:280, y:680, title:'VERIFICATION.md', sub:'per-phase', tip:'Pass/fail per success criterion. Written by verifier.' },
+      { id:'f10', type:'file-write', x:440, y:680, title:'HANDOFF.json', sub:'pause artifact', tip:'One-shot context transfer. Written by pause, read+deleted by resume.' },
+      { id:'f11', type:'file-write', x:600, y:680, title:'research/', sub:'domain knowledge', tip:'5 files. Written by researchers + synthesizer.' },
+      { id:'f12', type:'file-write', x:760, y:680, title:'.continue-here', sub:'checkpoint', tip:'Blocks advancement until resolved. Written by executor on deviation.' },
+    ],
+    arrows: [
+      ['o1','f1'],['o1','f2'],['o1','f3'],['o1','f4'],['o1','f5'],
+      ['o2','f6'],['o3','f7'],['o4','f8'],['o5','f9'],['o7','f10'],
+      ['a1','f11'],['a2','f4'],['a2','f5'],['a3','f7'],['a4','f8'],['a5','f9'],
+      ['f1','a1'],['f3','a2'],['f4','a3'],['f7','a4'],['f4','a5'],
+    ]
+  }
+};
+
+// ─── RENDER ──────────────────────────────────────────────
+
+function render() {
+  const wf = WORKFLOWS[state.workflow];
+  const bp = document.getElementById('blueprint');
+  const lanesEl = document.getElementById('swimLanes');
+  const svg = document.getElementById('arrows');
+
+  bp.style.minWidth = wf.width + 'px';
+  bp.style.minHeight = wf.height + 'px';
+
+  // Clear old nodes
+  lanesEl.textContent = '';
+  svg.textContent = '';
+  bp.querySelectorAll('.node').forEach(function(n) { n.remove(); });
+
+  // Draw lanes
+  wf.lanes.forEach(function(lane) {
+    var div = document.createElement('div');
+    div.className = 'swim-lane';
+    div.style.top = lane.y + 'px';
+    div.style.height = lane.h + 'px';
+    div.style.background = lane.color;
+    var label = document.createElement('div');
+    label.className = 'lane-label';
+    label.textContent = lane.name;
+    var colors = { USER: 'var(--accent)', ORCHESTRATOR: 'var(--orange)', SUBAGENTS: 'var(--purple)', 'FILE SYSTEM': 'var(--green)' };
+    label.style.color = colors[lane.name] || 'var(--text)';
+    div.appendChild(label);
+    lanesEl.appendChild(div);
+  });
+
+  // Draw nodes
+  var nodeMap = {};
+  wf.nodes.forEach(function(n) {
+    var div = document.createElement('div');
+    div.className = 'node ' + n.type;
+    div.style.left = n.x + 'px';
+    div.style.top = n.y + 'px';
+    div.dataset.id = n.id;
+    div.dataset.type = n.type;
+
+    var titleEl = document.createElement('div');
+    titleEl.className = 'node-title';
+    titleEl.textContent = n.title;
+    div.appendChild(titleEl);
+
+    if (n.sub) {
+      var subEl = document.createElement('div');
+      subEl.className = 'node-sub';
+      subEl.textContent = n.sub;
+      div.appendChild(subEl);
+    }
+
+    if (state.highlight && n.type !== state.highlight) {
+      div.classList.add('dimmed');
+    }
+    if (state.selectedNode === n.id) {
+      div.classList.add('highlighted');
+    }
+
+    div.addEventListener('mouseenter', function(e) { showTooltip(e, n); });
+    div.addEventListener('mouseleave', hideTooltip);
+    div.addEventListener('click', function() {
+      state.selectedNode = state.selectedNode === n.id ? null : n.id;
+      render();
+    });
+
+    bp.appendChild(div);
+    nodeMap[n.id] = div;
+  });
+
+  // SVG setup
+  svg.setAttribute('width', wf.width);
+  svg.setAttribute('height', wf.height);
+
+  var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  var marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+  marker.setAttribute('id', 'arrowhead');
+  marker.setAttribute('markerWidth', '8');
+  marker.setAttribute('markerHeight', '6');
+  marker.setAttribute('refX', '8');
+  marker.setAttribute('refY', '3');
+  marker.setAttribute('orient', 'auto');
+  var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M0,0 L8,3 L0,6');
+  path.setAttribute('fill', 'rgba(139,148,158,0.6)');
+  marker.appendChild(path);
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+
+  // Draw arrows
+  wf.arrows.forEach(function(pair) {
+    var fromEl = nodeMap[pair[0]];
+    var toEl = nodeMap[pair[1]];
+    if (!fromEl || !toEl) return;
+
+    var fx = fromEl.offsetLeft + fromEl.offsetWidth / 2;
+    var fy = fromEl.offsetTop + fromEl.offsetHeight / 2;
+    var tx = toEl.offsetLeft + toEl.offsetWidth / 2;
+    var ty = toEl.offsetTop + toEl.offsetHeight / 2;
+
+    var dx = tx - fx;
+    var dy = ty - fy;
+    var x1, y1, x2, y2;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      x1 = dx > 0 ? fromEl.offsetLeft + fromEl.offsetWidth : fromEl.offsetLeft;
+      y1 = fy;
+      x2 = dx > 0 ? toEl.offsetLeft : toEl.offsetLeft + toEl.offsetWidth;
+      y2 = ty;
+    } else {
+      x1 = fx;
+      y1 = dy > 0 ? fromEl.offsetTop + fromEl.offsetHeight : fromEl.offsetTop;
+      x2 = tx;
+      y2 = dy > 0 ? toEl.offsetTop : toEl.offsetTop + toEl.offsetHeight;
+    }
+
+    var dimmed = state.highlight && !fromEl.classList.contains(state.highlight) && !toEl.classList.contains(state.highlight);
+
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    line.setAttribute('stroke', dimmed ? 'rgba(139,148,158,0.08)' : 'rgba(139,148,158,0.35)');
+    line.setAttribute('stroke-width', '1.5');
+    line.setAttribute('marker-end', 'url(#arrowhead)');
+    svg.appendChild(line);
+  });
+
+  updatePrompt();
+  renderStatePanel();
+  renderRouteList();
+  updatePresetButtons();
+}
+
+function renderStatePanel() {
+  var panel = document.getElementById('statePanel');
+  panel.textContent = '';
+  STATE_FILES.forEach(function(f) {
+    var div = document.createElement('div');
+    div.className = 'state-file' + (state.selectedFile === f.name ? ' active' : '');
+
+    var nameEl = document.createElement('div');
+    nameEl.className = 'fname';
+    nameEl.textContent = f.name;
+    div.appendChild(nameEl);
+
+    var descEl = document.createElement('div');
+    descEl.className = 'fdesc';
+    descEl.textContent = f.desc;
+    div.appendChild(descEl);
+
+    var fieldsEl = document.createElement('div');
+    fieldsEl.className = 'ffields';
+    fieldsEl.textContent = f.fields;
+    div.appendChild(fieldsEl);
+
+    div.addEventListener('click', function() {
+      state.selectedFile = state.selectedFile === f.name ? null : f.name;
+      render();
+    });
+    panel.appendChild(div);
+  });
+}
+
+function renderRouteList() {
+  var list = document.getElementById('routeList');
+  list.textContent = '';
+  ROUTES.forEach(function(r) {
+    var div = document.createElement('div');
+    div.className = 'route-item' + (state.selectedRoute === r.num ? ' active' : '');
+
+    var numSpan = document.createElement('span');
+    numSpan.className = 'route-num';
+    numSpan.textContent = 'R' + r.num;
+    div.appendChild(numSpan);
+    div.appendChild(document.createTextNode(' ' + r.name));
+
+    var condSpan = document.createElement('span');
+    condSpan.className = 'route-cond';
+    condSpan.textContent = r.condition;
+    div.appendChild(condSpan);
+
+    div.addEventListener('click', function() {
+      state.selectedRoute = state.selectedRoute === r.num ? null : r.num;
+      render();
+    });
+    list.appendChild(div);
+  });
+}
+
+// ─── TOOLTIP ─────────────────────────────────────────────
+
+function showTooltip(e, node) {
+  var tt = document.getElementById('tooltip');
+  tt.textContent = '';
+
+  var titleEl = document.createElement('div');
+  titleEl.className = 'tt-title';
+  titleEl.textContent = node.title;
+  tt.appendChild(titleEl);
+
+  var bodyEl = document.createElement('div');
+  bodyEl.className = 'tt-body';
+  bodyEl.textContent = node.tip;
+  tt.appendChild(bodyEl);
+
+  tt.style.display = 'block';
+  var rect = tt.getBoundingClientRect();
+  tt.style.left = Math.min(e.clientX + 12, window.innerWidth - rect.width - 20) + 'px';
+  tt.style.top = Math.min(e.clientY + 12, window.innerHeight - rect.height - 20) + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+// ─── PROMPT OUTPUT ───────────────────────────────────────
+
+function updatePrompt() {
+  var wf = WORKFLOWS[state.workflow];
+  var parts = ['The GSD "' + wf.title + '" workflow'];
+
+  if (state.workflow !== DEFAULTS.workflow) {
+    parts.push('(' + wf.desc + ')');
+  }
+
+  if (state.highlight) {
+    parts.push('highlighting ' + state.highlight.replace('-', ' ') + ' nodes');
+  }
+
+  if (state.selectedNode) {
+    var node = wf.nodes.find(function(n) { return n.id === state.selectedNode; });
+    if (node) parts.push('- focused on "' + node.title + '": ' + node.tip);
+  }
+
+  if (state.selectedFile) {
+    var f = STATE_FILES.find(function(sf) { return sf.name === state.selectedFile; });
+    if (f) parts.push('\n\nState file ' + f.name + ': ' + f.desc + '. Fields: ' + f.fields.replace(/\n/g, ', ') + '. Written by: ' + f.writes.join(', ') + '. Read by: ' + f.reads.join(', ') + '.');
+  }
+
+  if (state.selectedRoute !== null) {
+    var r = ROUTES.find(function(rt) { return rt.num === state.selectedRoute; });
+    if (r) parts.push('\n\nRoute ' + r.num + ' (' + r.name + '): When ' + r.condition + ' \u2192 ' + r.action);
+  }
+
+  document.getElementById('promptOutput').textContent = parts.join(' ');
+}
+
+// ─── PRESETS ─────────────────────────────────────────────
+
+var PRESETS = {
+  overview: { workflow: 'new-project', detail: 'full', highlight: null },
+  research: { workflow: 'agents', detail: 'full', highlight: 'subagent' },
+  execution: { workflow: 'phase-lifecycle', detail: 'full', highlight: null },
+  safety: { workflow: 'routing', detail: 'full', highlight: 'gate' },
+};
+
+function applyPreset(name) {
+  var p = PRESETS[name];
+  if (!p) return;
+  state.workflow = p.workflow;
+  state.detail = p.detail;
+  state.highlight = p.highlight;
+  state.selectedNode = null;
+  state.selectedFile = null;
+  state.selectedRoute = null;
+  document.getElementById('workflowSelect').value = p.workflow;
+  document.getElementById('detailLevel').value = p.detail;
+  render();
+}
+
+function updatePresetButtons() {
+  document.querySelectorAll('.preset-btn').forEach(function(btn) {
+    var p = PRESETS[btn.dataset.preset];
+    btn.classList.toggle('active', p && state.workflow === p.workflow && state.highlight === p.highlight);
+  });
+}
+
+// ─── EVENT LISTENERS ─────────────────────────────────────
+
+document.getElementById('workflowSelect').addEventListener('change', function(e) {
+  state.workflow = e.target.value;
+  state.selectedNode = null;
+  state.highlight = null;
+  render();
+});
+
+document.getElementById('detailLevel').addEventListener('change', function(e) {
+  state.detail = e.target.value;
+  render();
+});
+
+document.querySelectorAll('.preset-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() { applyPreset(btn.dataset.preset); });
+});
+
+document.querySelectorAll('.legend-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    var hl = item.dataset.highlight;
+    state.highlight = state.highlight === hl ? null : hl;
+    document.querySelectorAll('.legend-item').forEach(function(i) {
+      i.classList.toggle('highlighted', i.dataset.highlight === state.highlight);
+    });
+    render();
+  });
+});
+
+document.getElementById('copyBtn').addEventListener('click', function() {
+  var text = document.getElementById('promptOutput').textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+  });
+});
+
+// ─── INIT ────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>

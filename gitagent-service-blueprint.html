@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gitagent Service Blueprint</title>
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2333;--border:#30363d;--text:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--green:#3fb950;--orange:#d29922;--red:#f85149;--purple:#bc8cff;--cyan:#39d2c0;--pink:#f778ba;--yellow:#e3b341}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+.hdr{display:flex;align-items:center;gap:16px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.hdr h1{font-size:15px;font-weight:600;white-space:nowrap}
+.hdr h1 em{color:var(--accent);font-style:normal}
+.ctrls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cg{display:flex;align-items:center;gap:5px}
+.cg label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+select,button{font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 9px;cursor:pointer}
+select:hover,button:hover{border-color:var(--accent)}
+.pb{font-size:11px;padding:3px 8px;border-radius:4px}
+.pb.on{background:var(--accent);color:#000;border-color:var(--accent)}
+
+.main{flex:1;display:flex;overflow:hidden}
+
+.side{width:270px;border-right:1px solid var(--border);background:var(--surface);overflow-y:auto;flex-shrink:0;padding:12px}
+.side h3{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
+.side h3:first-child{margin-top:0}
+.li{display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;border-radius:4px;padding:4px 6px}
+.li:hover{background:var(--surface2)}
+.li.hl{background:rgba(88,166,255,.15)}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.sf{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:11px;cursor:pointer;transition:all .15s}
+.sf:hover,.sf.on{border-color:var(--accent);background:rgba(88,166,255,.08)}
+.sf .fn{font-family:'SF Mono','Fira Code',monospace;font-weight:600;color:var(--accent);font-size:11px}
+.sf .fd{color:var(--dim);margin-top:2px}
+.sf .ff{color:var(--text);margin-top:4px;font-family:monospace;font-size:10px;line-height:1.5;white-space:pre}
+
+.bpc{flex:1;overflow:auto;position:relative}
+.bp{position:relative}
+
+.sl{position:absolute;left:0;right:0;border-bottom:1px solid var(--border)}
+.ll{position:absolute;left:0;top:0;bottom:0;width:90px;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;text-orientation:mixed;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;border-right:1px solid var(--border);z-index:2}
+
+.nd{position:absolute;border-radius:7px;padding:7px 11px;font-size:11px;cursor:pointer;transition:all .12s;z-index:3;text-align:center;min-width:85px;border:1px solid}
+.nd:hover{transform:scale(1.06);z-index:10}
+.nd.dim{opacity:.12}
+.nd.hi{box-shadow:0 0 14px rgba(88,166,255,.5);transform:scale(1.06);z-index:10}
+.nd .nt{font-weight:600;font-size:11px;white-space:nowrap}
+.nd .ns{font-size:9px;opacity:.7;margin-top:2px}
+
+.nd.user{background:rgba(88,166,255,.15);border-color:var(--accent);color:var(--accent)}
+.nd.cli{background:rgba(214,153,34,.15);border-color:var(--orange);color:var(--orange)}
+.nd.adapter{background:rgba(188,140,255,.15);border-color:var(--purple);color:var(--purple)}
+.nd.runner{background:rgba(57,210,192,.15);border-color:var(--cyan);color:var(--cyan)}
+.nd.util{background:rgba(227,179,65,.15);border-color:var(--yellow);color:var(--yellow)}
+.nd.fs{background:rgba(63,185,80,.15);border-color:var(--green);color:var(--green)}
+.nd.ext{background:rgba(248,81,73,.15);border-color:var(--red);color:var(--red)}
+.nd.schema{background:rgba(247,120,186,.15);border-color:var(--pink);color:var(--pink)}
+
+svg.arr{position:absolute;top:0;left:0;pointer-events:none;z-index:2}
+.tt{position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12px;max-width:360px;z-index:100;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.4);display:none}
+.tt .t1{font-weight:600;color:var(--accent);margin-bottom:4px}
+.tt .t2{color:var(--dim);line-height:1.5}
+.tt code{font-family:monospace;color:var(--green);font-size:11px}
+
+.pbar{border-top:1px solid var(--border);background:var(--surface);padding:10px 20px;flex-shrink:0;display:flex;align-items:center;gap:12px}
+.ptxt{flex:1;font-family:'SF Mono',monospace;font-size:11px;color:var(--dim);line-height:1.5;max-height:60px;overflow-y:auto}
+.cbtn{background:var(--accent);color:#000;border:none;border-radius:6px;padding:6px 14px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap}
+.cbtn:hover{opacity:.9}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1><em>gitagent</em> Service Blueprint</h1>
+  <div class="ctrls">
+    <div class="cg"><label>Flow</label>
+      <select id="wfSel">
+        <option value="run">Run (git repo &rarr; agent)</option>
+        <option value="export">Export (agent &rarr; format)</option>
+        <option value="validate">Validate (agent &rarr; report)</option>
+        <option value="init">Init (scaffold agent)</option>
+        <option value="import">Import (framework &rarr; agent)</option>
+        <option value="audit">Audit (compliance report)</option>
+        <option value="overview">Full Architecture</option>
+      </select>
+    </div>
+    <div class="cg"><label>Presets</label>
+      <button class="pb" data-p="data-flow">Data Flow</button>
+      <button class="pb" data-p="adapters">Adapters</button>
+      <button class="pb" data-p="validation">Validation</button>
+      <button class="pb" data-p="compliance">Compliance</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="side">
+    <h3>Swim Lanes</h3>
+    <div class="li" data-hl="user"><div class="dot" style="background:var(--accent)"></div>User / Shell</div>
+    <div class="li" data-hl="cli"><div class="dot" style="background:var(--orange)"></div>CLI Commands</div>
+    <div class="li" data-hl="util"><div class="dot" style="background:var(--yellow)"></div>Utils (loader, skills, git)</div>
+    <div class="li" data-hl="adapter"><div class="dot" style="background:var(--purple)"></div>Adapters</div>
+    <div class="li" data-hl="runner"><div class="dot" style="background:var(--cyan)"></div>Runners</div>
+    <div class="li" data-hl="fs"><div class="dot" style="background:var(--green)"></div>File System</div>
+    <div class="li" data-hl="ext"><div class="dot" style="background:var(--red)"></div>External Process</div>
+    <div class="li" data-hl="schema"><div class="dot" style="background:var(--pink)"></div>Schema / Validation</div>
+
+    <h3>Agent File System</h3>
+    <div id="filePanel"></div>
+
+    <h3>Adapters (12)</h3>
+    <div id="adapterPanel"></div>
+  </div>
+
+  <div class="bpc" id="bpc">
+    <div class="bp" id="bp">
+      <div id="lanes"></div>
+      <svg class="arr" id="svg"></svg>
+    </div>
+  </div>
+</div>
+
+<div class="pbar">
+  <div class="ptxt" id="prompt">Select a flow to explore the gitagent service blueprint.</div>
+  <button class="cbtn" id="copyBtn">Copy</button>
+</div>
+
+<div class="tt" id="tt"></div>
+
+<script>
+var S={wf:'run',hl:null,sel:null,selFile:null};
+
+var AGENT_FILES=[
+  {name:'agent.yaml',desc:'Manifest (required)',fields:'name, version, description,\nmodel, skills[], tools[],\nagents{}, compliance{},\ndelegation, runtime, a2a'},
+  {name:'SOUL.md',desc:'Identity (required)',fields:'personality, communication\nstyle, values, expertise'},
+  {name:'RULES.md',desc:'Hard constraints',fields:'must-always, must-never,\nsafety boundaries'},
+  {name:'DUTIES.md',desc:'SOD policy',fields:'roles, conflicts,\nassignments, handoffs'},
+  {name:'skills/',desc:'Capability modules',fields:'SKILL.md (frontmatter +\ninstructions), scripts/'},
+  {name:'tools/',desc:'MCP tool schemas',fields:'*.yaml with name,\ndescription, parameters'},
+  {name:'knowledge/',desc:'Reference docs',fields:'index.yaml (always_load),\n*.md, *.csv, *.pdf'},
+  {name:'hooks/',desc:'Lifecycle handlers',fields:'hooks.yaml maps events\nto scripts/'},
+  {name:'agents/',desc:'Sub-agent dirs',fields:'Recursive agent.yaml +\nSOUL.md per sub-agent'},
+  {name:'memory/',desc:'Cross-session state',fields:'MEMORY.md (200 line max),\nmemory.yaml, archive/'},
+];
+
+var ADAPTERS=[
+  {name:'system-prompt',desc:'Core: SOUL + RULES + skills + knowledge + compliance'},
+  {name:'claude-code',desc:'CLAUDE.md with compliance + skills'},
+  {name:'openai',desc:'OpenAI Agents SDK Python code'},
+  {name:'crewai',desc:'CrewAI YAML config'},
+  {name:'cursor',desc:'.cursor/rules/*.mdc files'},
+  {name:'gemini',desc:'GEMINI.md + settings.json'},
+  {name:'codex',desc:'AGENTS.md for Codex CLI'},
+  {name:'copilot',desc:'.github/copilot-instructions.md'},
+  {name:'opencode',desc:'OpenCode instructions + config'},
+  {name:'lyzr',desc:'Lyzr Studio agent'},
+  {name:'openclaw',desc:'OpenClaw format'},
+  {name:'nanobot',desc:'Nanobot format'},
+];
+
+var WF={
+  'run':{
+    title:'Run: Git Repo to Live Agent',
+    desc:'gitagent run --repo <url> --adapter claude',
+    h:900,w:1500,
+    lanes:[
+      {name:'USER',color:'#1a2740',y:0,h:120,lc:'var(--accent)'},
+      {name:'CLI',color:'#1a1f2e',y:120,h:160,lc:'var(--orange)'},
+      {name:'UTILS',color:'#2e2a1a',y:280,h:160,lc:'var(--yellow)'},
+      {name:'ADAPTERS',color:'#1f1a2e',y:440,h:140,lc:'var(--purple)'},
+      {name:'RUNNERS',color:'#1a2e2e',y:580,h:140,lc:'var(--cyan)'},
+      {name:'FILES',color:'#1a2e1f',y:720,h:100,lc:'var(--green)'},
+      {name:'EXTERNAL',color:'#2e1a1a',y:820,h:80,lc:'var(--red)'},
+    ],
+    nodes:[
+      {id:'u1',t:'user',x:120,y:30,title:'gitagent run',sub:'--repo <url> --adapter claude'},
+      {id:'u2',t:'user',x:550,y:30,title:'--prompt "query"',sub:'optional initial prompt'},
+      {id:'c1',t:'cli',x:120,y:150,title:'run.ts',sub:'parse options',tip:'Parses --repo, --adapter, --branch, --refresh, --no-cache, --prompt, --dir flags'},
+      {id:'c2',t:'cli',x:300,y:150,title:'resolve source',sub:'repo or dir?',tip:'If --dir: resolve local path. If --repo: delegate to git-cache.ts'},
+      {id:'c3',t:'cli',x:500,y:150,title:'load manifest',sub:'validate agent',tip:'loadAgentManifest() parses agent.yaml, checks agentDirExists()'},
+      {id:'c4',t:'cli',x:700,y:150,title:'route to runner',sub:'switch(adapter)',tip:'Maps adapter name to runner: claude, openai, crewai, openclaw, nanobot, lyzr, github, git, opencode, gemini'},
+      {id:'g1',t:'util',x:300,y:310,title:'git-cache.ts',sub:'resolveRepo()',tip:'SHA256 hash of url#branch for cache key. Shallow clone (--depth 1). Cache at ~/.gitagent/cache/<hash>'},
+      {id:'g2',t:'util',x:120,y:310,title:'detectDefaultBranch',sub:'git ls-remote',tip:'Auto-detects main vs master via git ls-remote --symref. Falls back to "main"'},
+      {id:'l1',t:'util',x:500,y:310,title:'loader.ts',sub:'loadAgentManifest()',tip:'Reads agent.yaml, parses YAML, returns AgentManifest interface with all fields typed'},
+      {id:'l2',t:'util',x:650,y:310,title:'skill-loader.ts',sub:'loadAllSkills()',tip:'Finds skills/ dirs, parses SKILL.md frontmatter (YAML) + instructions body. Progressive disclosure: metadata-only or full.'},
+      {id:'l3',t:'util',x:800,y:310,title:'loadFileIfExists',sub:'SOUL, RULES, DUTIES',tip:'Safe file reader for optional markdown files. Returns content or empty string.'},
+      {id:'a1',t:'adapter',x:350,y:470,title:'system-prompt.ts',sub:'exportToSystemPrompt()',tip:'Core composer: SOUL.md + RULES.md + DUTIES.md + skills (with allowed-tools) + knowledge (always_load) + compliance constraints + memory'},
+      {id:'a2',t:'adapter',x:550,y:470,title:'shared.ts',sub:'buildComplianceSection()',tip:'Extracts compliance constraints into markdown: HITL, escalation, SOD roles/conflicts/handoffs, PII handling, communications rules'},
+      {id:'a3',t:'adapter',x:750,y:470,title:'[framework].ts',sub:'adapter-specific',tip:'Wraps system-prompt output into framework format: CLAUDE.md, Python code, YAML config, .mdc files, etc.'},
+      {id:'r1',t:'runner',x:350,y:610,title:'runWithClaude()',sub:'claude runner',tip:'Builds args: --model, --max-turns, --permission-mode (from compliance), --allowedTools (from skills), --agents (sub-agents), --add-dir, --settings (hooks), --append-system-prompt'},
+      {id:'r2',t:'runner',x:550,y:610,title:'collectAllowedTools',sub:'skills + tools/*.yaml',tip:'Merges allowed-tools from SKILL.md frontmatter + tool names from tools/*.yaml definitions'},
+      {id:'r3',t:'runner',x:750,y:610,title:'buildSubagentConfig',sub:'agents/ directory',tip:'Loads each sub-agent SOUL.md, builds {name, description, instructions, triggers} objects'},
+      {id:'r4',t:'runner',x:950,y:610,title:'buildHooksSettings',sub:'hooks/hooks.yaml',tip:'Maps gitagent hook events (on_session_start, pre_tool_use, etc.) to Claude Code events (SessionStart, PreToolUse, etc.)'},
+      {id:'f1',t:'fs',x:120,y:750,title:'~/.gitagent/cache/',sub:'repo cache',tip:'Cached shallow clones. Key: SHA256(url#branch)[0:16]. Reused across runs unless --refresh'},
+      {id:'f2',t:'fs',x:350,y:750,title:'agent.yaml',sub:'manifest',tip:'The only strictly-schemaed file. Parsed by js-yaml into AgentManifest interface'},
+      {id:'f3',t:'fs',x:550,y:750,title:'SOUL.md + RULES.md',sub:'identity files',tip:'Loaded as raw markdown, concatenated into system prompt'},
+      {id:'f4',t:'fs',x:750,y:750,title:'skills/ + tools/',sub:'capabilities',tip:'skills/*/SKILL.md parsed for frontmatter. tools/*.yaml parsed for tool schemas.'},
+      {id:'f5',t:'fs',x:950,y:750,title:'/tmp/gitagent-*',sub:'temp files',tip:'Temp system prompt file + temp hooks settings JSON. Cleaned up in finally block.'},
+      {id:'e1',t:'ext',x:350,y:845,title:'claude CLI',sub:'spawnSync()',tip:'Spawns real Claude Code binary (skips node_modules/.bin shadows). stdio: inherit. Exit code forwarded.'},
+      {id:'e2',t:'ext',x:550,y:845,title:'git clone',sub:'--depth 1',tip:'execFileSync("git", ["clone", "--depth", "1", "--branch", branch, url, dir])'},
+      {id:'e3',t:'ext',x:750,y:845,title:'[framework]',sub:'target runtime',tip:'OpenAI, CrewAI, Gemini, etc. Each runner spawns the appropriate CLI or SDK.'},
+    ],
+    arrows:[
+      ['u1','c1'],['c1','c2'],['c2','g1'],['g1','g2'],['g2','e2'],['e2','f1'],
+      ['c2','c3'],['c3','l1'],['l1','f2'],['c3','c4'],
+      ['c4','r1'],['c4','e3'],
+      ['r1','a1'],['a1','l2'],['a1','l3'],['a1','a2'],
+      ['l2','f4'],['l3','f3'],
+      ['r1','r2'],['r1','r3'],['r1','r4'],
+      ['r2','f4'],['r3','f2'],
+      ['r1','f5'],['r1','e1'],
+      ['u2','r1'],
+    ]
+  },
+
+  'export':{
+    title:'Export: Agent Definition to Framework Format',
+    desc:'gitagent export --format <fmt> --dir <path>',
+    h:700,w:1400,
+    lanes:[
+      {name:'USER',color:'#1a2740',y:0,h:100,lc:'var(--accent)'},
+      {name:'CLI',color:'#1a1f2e',y:100,h:130,lc:'var(--orange)'},
+      {name:'UTILS',color:'#2e2a1a',y:230,h:130,lc:'var(--yellow)'},
+      {name:'ADAPTERS',color:'#1f1a2e',y:360,h:200,lc:'var(--purple)'},
+      {name:'FILES',color:'#1a2e1f',y:560,h:100,lc:'var(--green)'},
+    ],
+    nodes:[
+      {id:'u1',t:'user',x:120,y:25,title:'gitagent export',sub:'--format claude-code'},
+      {id:'c1',t:'cli',x:120,y:130,title:'export.ts',sub:'parse --format',tip:'Routes to adapter based on format string. 13 formats supported.'},
+      {id:'c2',t:'cli',x:350,y:130,title:'switch(format)',sub:'13 cases',tip:'system-prompt, claude-code, openai, crewai, openclaw, nanobot, lyzr, github, copilot, opencode, cursor, gemini, codex'},
+      {id:'l1',t:'util',x:120,y:265,title:'loader.ts',sub:'loadAgentManifest()',tip:'Parse agent.yaml into typed AgentManifest'},
+      {id:'l2',t:'util',x:300,y:265,title:'skill-loader.ts',sub:'loadAllSkills()',tip:'Parse all SKILL.md files in skills/ directory'},
+      {id:'l3',t:'util',x:480,y:265,title:'loadFileIfExists()',sub:'SOUL, RULES, DUTIES',tip:'Read optional markdown identity files'},
+      {id:'a0',t:'adapter',x:120,y:390,title:'system-prompt.ts',sub:'core composer',tip:'SOUL + RULES + DUTIES + skills (with tools) + knowledge (always_load docs) + compliance constraints + memory. All other adapters build on this.'},
+      {id:'a1',t:'adapter',x:300,y:390,title:'claude-code.ts',sub:'CLAUDE.md',tip:'Emits markdown with ## sections. Uses buildComplianceSection() from shared.ts'},
+      {id:'a2',t:'adapter',x:450,y:390,title:'openai.ts',sub:'Python code',tip:'Generates OpenAI Agents SDK Python with Agent() constructor, tools, model config'},
+      {id:'a3',t:'adapter',x:600,y:390,title:'crewai.ts',sub:'YAML config',tip:'Generates CrewAI agents.yaml with role, goal, backstory from SOUL.md'},
+      {id:'a4',t:'adapter',x:750,y:390,title:'cursor.ts',sub:'.mdc rules',tip:'Generates .cursor/rules/*.mdc with metadata frontmatter + content'},
+      {id:'a5',t:'adapter',x:900,y:390,title:'gemini.ts',sub:'GEMINI.md + settings',tip:'Markdown instructions + settings.json with model prefs'},
+      {id:'a6',t:'adapter',x:300,y:480,title:'codex.ts',sub:'AGENTS.md',tip:'Generates AGENTS.md for Codex CLI with instructions + tools'},
+      {id:'a7',t:'adapter',x:450,y:480,title:'copilot.ts',sub:'copilot-instructions',tip:'.github/copilot-instructions.md with agent identity'},
+      {id:'a8',t:'adapter',x:600,y:480,title:'shared.ts',sub:'buildComplianceSection()',tip:'Shared compliance markdown builder used by markdown-emitting adapters'},
+      {id:'f1',t:'fs',x:120,y:590,title:'agent.yaml',sub:'input',tip:'Source manifest'},
+      {id:'f2',t:'fs',x:300,y:590,title:'SOUL + RULES + skills/',sub:'input',tip:'Identity and capability files'},
+      {id:'f3',t:'fs',x:550,y:590,title:'stdout or --output',sub:'result',tip:'Exported format written to stdout or specified output file'},
+    ],
+    arrows:[
+      ['u1','c1'],['c1','c2'],['c1','l1'],['l1','f1'],['c1','l2'],['l2','f2'],['c1','l3'],
+      ['c2','a0'],['c2','a1'],['c2','a2'],['c2','a3'],['c2','a4'],['c2','a5'],
+      ['a0','l2'],['a0','l3'],
+      ['a1','a8'],['a6','a8'],['a7','a8'],
+      ['a1','f3'],['a2','f3'],['a3','f3'],
+    ]
+  },
+
+  'validate':{
+    title:'Validate: Schema + Cross-Reference + Compliance',
+    desc:'gitagent validate [--compliance] --dir <path>',
+    h:750,w:1400,
+    lanes:[
+      {name:'USER',color:'#1a2740',y:0,h:100,lc:'var(--accent)'},
+      {name:'CLI',color:'#1a1f2e',y:100,h:160,lc:'var(--orange)'},
+      {name:'UTILS',color:'#2e2a1a',y:260,h:130,lc:'var(--yellow)'},
+      {name:'SCHEMAS',color:'#2e1a2e',y:390,h:130,lc:'var(--pink)'},
+      {name:'FILES',color:'#1a2e1f',y:520,h:100,lc:'var(--green)'},
+      {name:'REPORT',color:'#2e1a1a',y:620,h:100,lc:'var(--red)'},
+    ],
+    nodes:[
+      {id:'u1',t:'user',x:120,y:25,title:'gitagent validate',sub:'--compliance'},
+      {id:'c1',t:'cli',x:120,y:130,title:'validate.ts',sub:'~600 LOC',tip:'Largest command. Runs 3 validation passes: schema, cross-reference, compliance.'},
+      {id:'c2',t:'cli',x:300,y:130,title:'Pass 1: Schema',sub:'AJV validation',tip:'Validates agent.yaml against agent-yaml.schema.json using AJV with allErrors: true'},
+      {id:'c3',t:'cli',x:500,y:130,title:'Pass 2: Cross-ref',sub:'files exist?',tip:'Checks: skills/ dirs exist for manifest.skills[], tools/*.yaml for manifest.tools[], agents/ dirs for manifest.agents{}'},
+      {id:'c4',t:'cli',x:700,y:130,title:'Pass 3: Skills',sub:'SKILL.md validation',tip:'For each skill dir: parse SKILL.md, validate frontmatter against skill.schema.json, check name+description present'},
+      {id:'c5',t:'cli',x:900,y:130,title:'Pass 4: Compliance',sub:'if --compliance',tip:'Checks regulatory requirements: FINRA 3110 supervision, 4511 recordkeeping, SOD conflicts, model risk, data governance'},
+      {id:'c6',t:'cli',x:700,y:200,title:'Pass 5: Hooks',sub:'hooks.yaml',tip:'Validates hooks.yaml against hook.schema.json if hooks/ dir exists'},
+      {id:'c7',t:'cli',x:900,y:200,title:'Pass 6: Knowledge',sub:'index.yaml',tip:'Validates knowledge/index.yaml against knowledge.schema.json if knowledge/ dir exists'},
+      {id:'l1',t:'util',x:120,y:295,title:'loader.ts',sub:'loadAgentManifest()',tip:'Parse agent.yaml into typed object for validation'},
+      {id:'l2',t:'util',x:300,y:295,title:'skill-loader.ts',sub:'parseSkillMd()',tip:'Parse SKILL.md frontmatter for per-skill validation'},
+      {id:'l3',t:'util',x:480,y:295,title:'schemas.ts',sub:'loadSchema()',tip:'Loads JSON schema files from spec/schemas/ directory'},
+      {id:'s1',t:'schema',x:120,y:420,title:'agent-yaml.schema',sub:'manifest schema',tip:'Primary schema for agent.yaml. Validates all top-level fields, model, compliance, delegation, etc.'},
+      {id:'s2',t:'schema',x:300,y:420,title:'skill.schema',sub:'SKILL.md frontmatter',tip:'Validates skill frontmatter: name (required), description (required), allowed-tools, metadata'},
+      {id:'s3',t:'schema',x:480,y:420,title:'compliance.schema',sub:'regulatory',tip:'Validates compliance section: risk_tier, frameworks, supervision, recordkeeping, SOD'},
+      {id:'s4',t:'schema',x:660,y:420,title:'hook.schema',sub:'hooks.yaml',tip:'Validates hook definitions: event names, script paths, timeout'},
+      {id:'s5',t:'schema',x:840,y:420,title:'+ 6 more schemas',sub:'spec/schemas/',tip:'knowledge, memory, config, workflow, marketplace, tool schemas'},
+      {id:'f1',t:'fs',x:120,y:555,title:'agent.yaml',sub:'manifest',tip:'Primary validation target'},
+      {id:'f2',t:'fs',x:300,y:555,title:'skills/*/SKILL.md',sub:'skill files',tip:'Each skill validated individually'},
+      {id:'f3',t:'fs',x:500,y:555,title:'tools/*.yaml',sub:'tool defs',tip:'Existence checked for cross-reference'},
+      {id:'f4',t:'fs',x:700,y:555,title:'agents/*/agent.yaml',sub:'sub-agents',tip:'Recursive validation of sub-agent manifests'},
+      {id:'r1',t:'ext',x:120,y:650,title:'errors[]',sub:'validation fails',tip:'Schema errors with JSON path (e.g., /model/preferred: must be string)'},
+      {id:'r2',t:'ext',x:350,y:650,title:'warnings[]',sub:'non-fatal issues',tip:'Missing optional files, deprecated fields, best practices'},
+      {id:'r3',t:'ext',x:600,y:650,title:'PASS / FAIL',sub:'exit code 0 or 1',tip:'Exit 0 if no errors. Exit 1 if any error. Warnings do not fail.'},
+    ],
+    arrows:[
+      ['u1','c1'],['c1','c2'],['c2','c3'],['c3','c4'],['c4','c5'],['c4','c6'],['c5','c7'],
+      ['c1','l1'],['l1','f1'],['c4','l2'],['l2','f2'],['c2','l3'],
+      ['l3','s1'],['l3','s2'],['l3','s3'],['l3','s4'],
+      ['c3','f3'],['c3','f4'],
+      ['c1','r1'],['c1','r2'],['r1','r3'],['r2','r3'],
+    ]
+  },
+
+  'init':{
+    title:'Init: Scaffold New Agent',
+    desc:'gitagent init --template <minimal|standard|full>',
+    h:550,w:1200,
+    lanes:[
+      {name:'USER',color:'#1a2740',y:0,h:100,lc:'var(--accent)'},
+      {name:'CLI',color:'#1a1f2e',y:100,h:180,lc:'var(--orange)'},
+      {name:'FILES',color:'#1a2e1f',y:280,h:230,lc:'var(--green)'},
+    ],
+    nodes:[
+      {id:'u1',t:'user',x:120,y:25,title:'gitagent init',sub:'--template standard'},
+      {id:'c1',t:'cli',x:120,y:130,title:'init.ts',sub:'~445 LOC',tip:'Scaffolds agent directory structure from templates. 3 tiers: minimal, standard, full'},
+      {id:'c2',t:'cli',x:300,y:130,title:'select template',sub:'minimal/standard/full',tip:'Minimal: agent.yaml + SOUL.md. Standard: + RULES, skills/, tools/, knowledge/. Full: + compliance, hooks, workflows, agents/, DUTIES.md'},
+      {id:'c3',t:'cli',x:500,y:130,title:'inquirer prompts',sub:'interactive',tip:'Asks: agent name, description, preferred model. Uses inquirer for interactive CLI prompts.'},
+      {id:'c4',t:'cli',x:700,y:130,title:'write files',sub:'mkdirSync + writeFileSync',tip:'Creates directory structure and writes template content to each file'},
+      {id:'c5',t:'cli',x:700,y:220,title:'.gitignore',sub:'+ .gitagent/',tip:'Adds .gitagent/ (runtime state) to .gitignore. Creates .gitignore if missing.'},
+      {id:'f1',t:'fs',x:120,y:310,title:'agent.yaml',sub:'manifest',tip:'Pre-filled with user inputs: name, version 0.1.0, description, model preferred'},
+      {id:'f2',t:'fs',x:280,y:310,title:'SOUL.md',sub:'identity template',tip:'Template with ## sections: Core Identity, Communication Style, Values, Domain Expertise'},
+      {id:'f3',t:'fs',x:440,y:310,title:'RULES.md',sub:'standard only',tip:'Template with Must-Always, Must-Never, Communication Rules sections'},
+      {id:'f4',t:'fs',x:600,y:310,title:'skills/ + tools/',sub:'standard + full',tip:'Empty directories with placeholder SKILL.md and tool.yaml'},
+      {id:'f5',t:'fs',x:120,y:410,title:'knowledge/',sub:'standard + full',tip:'Directory + index.yaml template for document references'},
+      {id:'f6',t:'fs',x:280,y:410,title:'hooks/',sub:'full only',tip:'hooks.yaml template + scripts/ directory with bootstrap/teardown stubs'},
+      {id:'f7',t:'fs',x:440,y:410,title:'DUTIES.md + agents/',sub:'full only',tip:'SOD policy template + sub-agent directory with placeholder agent.yaml'},
+      {id:'f8',t:'fs',x:600,y:410,title:'compliance/ + workflows/',sub:'full only',tip:'Compliance artifacts directory + workflow YAML template'},
+    ],
+    arrows:[
+      ['u1','c1'],['c1','c2'],['c2','c3'],['c3','c4'],['c4','c5'],
+      ['c4','f1'],['c4','f2'],['c4','f3'],['c4','f4'],['c4','f5'],['c4','f6'],['c4','f7'],['c4','f8'],
+    ]
+  },
+
+  'import':{
+    title:'Import: Convert Framework Agent to gitagent',
+    desc:'gitagent import --from <claude|cursor|crewai|opencode> <path>',
+    h:600,w:1300,
+    lanes:[
+      {name:'USER',color:'#1a2740',y:0,h:100,lc:'var(--accent)'},
+      {name:'CLI',color:'#1a1f2e',y:100,h:200,lc:'var(--orange)'},
+      {name:'FILES',color:'#1a2e1f',y:300,h:120,lc:'var(--green)'},
+      {name:'OUTPUT',color:'#1a2e2e',y:420,h:120,lc:'var(--cyan)'},
+    ],
+    nodes:[
+      {id:'u1',t:'user',x:120,y:25,title:'gitagent import',sub:'--from claude ./project'},
+      {id:'c1',t:'cli',x:120,y:130,title:'import.ts',sub:'~566 LOC',tip:'Reads framework-specific config and converts to gitagent standard format'},
+      {id:'c2',t:'cli',x:300,y:130,title:'switch(from)',sub:'4 importers',tip:'Routes to: importFromClaude, importFromCursor, importFromCrewAI, importFromOpenCode'},
+      {id:'c3',t:'cli',x:300,y:230,title:'importFromClaude',sub:'CLAUDE.md parser',tip:'Reads CLAUDE.md, extracts sections via regex. Copies .claude/skills/ if present. Creates agent.yaml + SOUL.md.'},
+      {id:'c4',t:'cli',x:500,y:230,title:'importFromCursor',sub:'.cursor/rules/ parser',tip:'Reads .cursorrules or .cursor/rules/*.mdc files. Extracts frontmatter + content per rule.'},
+      {id:'c5',t:'cli',x:700,y:230,title:'importFromCrewAI',sub:'YAML parser',tip:'Reads CrewAI agents.yaml. Maps role/goal/backstory to SOUL.md sections.'},
+      {id:'c6',t:'cli',x:900,y:230,title:'importFromOpenCode',sub:'config parser',tip:'Reads OpenCode .opencode/ config and instructions.'},
+      {id:'f1',t:'fs',x:120,y:330,title:'CLAUDE.md',sub:'source: Claude',tip:'Claude Code instructions file parsed into agent identity'},
+      {id:'f2',t:'fs',x:350,y:330,title:'.cursor/rules/',sub:'source: Cursor',tip:'Cursor rule files (.mdc) with YAML frontmatter'},
+      {id:'f3',t:'fs',x:580,y:330,title:'agents.yaml',sub:'source: CrewAI',tip:'CrewAI agent definition with role, goal, backstory'},
+      {id:'f4',t:'fs',x:810,y:330,title:'.opencode/',sub:'source: OpenCode',tip:'OpenCode configuration directory'},
+      {id:'o1',t:'runner',x:120,y:450,title:'agent.yaml',sub:'generated',tip:'New manifest with name, version, model, imported skills list'},
+      {id:'o2',t:'runner',x:350,y:450,title:'SOUL.md',sub:'generated',tip:'Identity extracted from source framework instructions'},
+      {id:'o3',t:'runner',x:580,y:450,title:'skills/',sub:'copied',tip:'Skills imported from source .claude/skills/ or equivalent'},
+      {id:'o4',t:'runner',x:810,y:450,title:'RULES.md',sub:'generated',tip:'Constraints extracted from source framework rules'},
+    ],
+    arrows:[
+      ['u1','c1'],['c1','c2'],['c2','c3'],['c2','c4'],['c2','c5'],['c2','c6'],
+      ['c3','f1'],['c4','f2'],['c5','f3'],['c6','f4'],
+      ['c3','o1'],['c3','o2'],['c3','o3'],
+      ['c4','o1'],['c4','o2'],['c4','o4'],
+      ['c5','o1'],['c5','o2'],
+    ]
+  },
+
+  'audit':{
+    title:'Audit: Compliance Report Generation',
+    desc:'gitagent audit --dir <path>',
+    h:600,w:1200,
+    lanes:[
+      {name:'USER',color:'#1a2740',y:0,h:100,lc:'var(--accent)'},
+      {name:'CLI',color:'#1a1f2e',y:100,h:200,lc:'var(--orange)'},
+      {name:'SCHEMAS',color:'#2e1a2e',y:300,h:120,lc:'var(--pink)'},
+      {name:'REPORT',color:'#2e1a1a',y:420,h:130,lc:'var(--red)'},
+    ],
+    nodes:[
+      {id:'u1',t:'user',x:120,y:25,title:'gitagent audit',sub:'--dir ./my-agent'},
+      {id:'c1',t:'cli',x:120,y:130,title:'audit.ts',sub:'~252 LOC',tip:'Generates comprehensive compliance audit report against regulatory frameworks'},
+      {id:'c2',t:'cli',x:300,y:130,title:'1. Risk tier',sub:'classification',tip:'Reads compliance.risk_tier: unspecified, low, medium, high, critical'},
+      {id:'c3',t:'cli',x:470,y:130,title:'2. FINRA 3110',sub:'Supervision',tip:'Checks: designated supervisor, review cadence, HITL, escalation triggers, override, kill switch'},
+      {id:'c4',t:'cli',x:640,y:130,title:'3. FINRA 4511',sub:'Recordkeeping',tip:'Checks: audit logging, retention period, immutable storage, SEC 17a-4 compliance'},
+      {id:'c5',t:'cli',x:810,y:130,title:'4. SOD',sub:'Segregation of Duties',tip:'Checks: roles defined, conflicts declared, assignments valid, handoffs configured, DUTIES.md exists'},
+      {id:'c6',t:'cli',x:300,y:230,title:'5. Model Risk',sub:'SR 11-7',tip:'Checks: validation cadence, ongoing monitoring, outcomes analysis (Federal Reserve)'},
+      {id:'c7',t:'cli',x:470,y:230,title:'6. Data Gov',sub:'Reg S-P / CFPB',tip:'Checks: PII handling (redact/prohibit), customer privacy, explainability'},
+      {id:'c8',t:'cli',x:640,y:230,title:'7. Communications',sub:'FINRA 2210',tip:'Checks: fair_balanced flag, no_misleading flag'},
+      {id:'s1',t:'schema',x:120,y:330,title:'compliance{}',sub:'from manifest',tip:'The compliance section of agent.yaml drives all audit checks'},
+      {id:'s2',t:'schema',x:400,y:330,title:'DUTIES.md',sub:'SOD policy',tip:'Root-level SOD policy document checked during audit'},
+      {id:'s3',t:'schema',x:650,y:330,title:'hooks/hooks.yaml',sub:'lifecycle hooks',tip:'Checked for audit-related hooks (logging, compliance events)'},
+      {id:'r1',t:'ext',x:120,y:450,title:'PASS checks',sub:'green checkmarks',tip:'Requirements met. Shows specific check name and result.'},
+      {id:'r2',t:'ext',x:350,y:450,title:'FAIL checks',sub:'red crosses',tip:'Requirements not met. Shows what is missing and why it matters.'},
+      {id:'r3',t:'ext',x:580,y:450,title:'WARN checks',sub:'yellow warnings',tip:'Best practices not followed. Non-blocking but recommended.'},
+      {id:'r4',t:'ext',x:810,y:450,title:'Summary',sub:'total pass/fail/warn',tip:'Aggregate audit result with counts per category'},
+    ],
+    arrows:[
+      ['u1','c1'],['c1','c2'],['c2','c3'],['c3','c4'],['c4','c5'],['c5','c6'],['c6','c7'],['c7','c8'],
+      ['c1','s1'],['c5','s2'],['c1','s3'],
+      ['c1','r1'],['c1','r2'],['c1','r3'],['r1','r4'],['r2','r4'],['r3','r4'],
+    ]
+  },
+
+  'overview':{
+    title:'Full Architecture Overview',
+    desc:'How all gitagent components connect',
+    h:800,w:1400,
+    lanes:[
+      {name:'USER',color:'#1a2740',y:0,h:100,lc:'var(--accent)'},
+      {name:'COMMANDS',color:'#1a1f2e',y:100,h:140,lc:'var(--orange)'},
+      {name:'UTILS',color:'#2e2a1a',y:240,h:130,lc:'var(--yellow)'},
+      {name:'ADAPTERS',color:'#1f1a2e',y:370,h:120,lc:'var(--purple)'},
+      {name:'RUNNERS',color:'#1a2e2e',y:490,h:110,lc:'var(--cyan)'},
+      {name:'FILES',color:'#1a2e1f',y:600,h:100,lc:'var(--green)'},
+      {name:'EXTERNAL',color:'#2e1a1a',y:700,h:80,lc:'var(--red)'},
+    ],
+    nodes:[
+      {id:'u1',t:'user',x:120,y:25,title:'gitagent <cmd>',sub:'Commander.js CLI'},
+      {id:'c1',t:'cli',x:120,y:130,title:'init.ts',sub:'scaffold',tip:'Templates: minimal, standard, full. Interactive prompts.'},
+      {id:'c2',t:'cli',x:240,y:130,title:'validate.ts',sub:'check',tip:'Schema + cross-ref + compliance. 600 LOC. AJV.'},
+      {id:'c3',t:'cli',x:360,y:130,title:'export.ts',sub:'convert',tip:'Routes to 13 adapter formats.'},
+      {id:'c4',t:'cli',x:480,y:130,title:'run.ts',sub:'execute',tip:'Resolve repo, load manifest, route to runner.'},
+      {id:'c5',t:'cli',x:600,y:130,title:'import.ts',sub:'ingest',tip:'Convert from Claude, Cursor, CrewAI, OpenCode.'},
+      {id:'c6',t:'cli',x:720,y:130,title:'audit.ts',sub:'compliance',tip:'FINRA, Fed, SEC regulatory audit report.'},
+      {id:'c7',t:'cli',x:840,y:130,title:'info.ts',sub:'display',tip:'Shows agent summary: name, version, skills, tools.'},
+      {id:'c8',t:'cli',x:960,y:130,title:'skills.ts',sub:'manage',tip:'search, install, list, info for skills.'},
+      {id:'c9',t:'cli',x:1080,y:130,title:'install.ts',sub:'deps',tip:'Resolve and install git-based dependencies.'},
+      {id:'c10',t:'cli',x:120,y:190,title:'lyzr.ts',sub:'Lyzr mgmt',tip:'create, update, info, run Lyzr agents.'},
+      {id:'c11',t:'cli',x:240,y:190,title:'registry.ts',sub:'marketplace',tip:'Search and browse agent registry.'},
+      {id:'l1',t:'util',x:120,y:275,title:'loader.ts',sub:'AgentManifest',tip:'Core interface. Parses agent.yaml via js-yaml. ~200 LOC of interfaces.'},
+      {id:'l2',t:'util',x:300,y:275,title:'skill-loader.ts',sub:'ParsedSkill',tip:'SKILL.md parser. Frontmatter + instructions. Progressive disclosure (metadata vs full).'},
+      {id:'l3',t:'util',x:480,y:275,title:'schemas.ts',sub:'loadSchema()',tip:'Loads JSON schemas from spec/schemas/ for AJV validation.'},
+      {id:'l4',t:'util',x:640,y:275,title:'git-cache.ts',sub:'resolveRepo()',tip:'Clone, cache, and resolve git repos. SHA256 cache keys.'},
+      {id:'l5',t:'util',x:800,y:275,title:'format.ts',sub:'chalk wrappers',tip:'heading(), info(), error(), warn(), success(), label(), divider()'},
+      {id:'l6',t:'util',x:960,y:275,title:'auth-provision.ts',sub:'API keys',tip:'Load API keys from environment variables or .env file.'},
+      {id:'l7',t:'util',x:1100,y:275,title:'registry-provider.ts',sub:'marketplace',tip:'Query agent registry/marketplace for available agents.'},
+      {id:'a1',t:'adapter',x:120,y:400,title:'system-prompt.ts',sub:'core',tip:'Composes narrative: SOUL + RULES + DUTIES + skills + knowledge + compliance. All adapters build on this.'},
+      {id:'a2',t:'adapter',x:300,y:400,title:'claude-code.ts',sub:'CLAUDE.md',tip:'Markdown with sections for Claude Code'},
+      {id:'a3',t:'adapter',x:430,y:400,title:'openai.ts',sub:'Python',tip:'OpenAI Agents SDK code generation'},
+      {id:'a4',t:'adapter',x:560,y:400,title:'crewai.ts',sub:'YAML',tip:'CrewAI agents.yaml format'},
+      {id:'a5',t:'adapter',x:690,y:400,title:'cursor.ts',sub:'.mdc',tip:'Cursor rules files'},
+      {id:'a6',t:'adapter',x:820,y:400,title:'+ 7 more',sub:'adapters',tip:'gemini, codex, copilot, opencode, lyzr, openclaw, nanobot, github'},
+      {id:'a7',t:'adapter',x:990,y:400,title:'shared.ts',sub:'compliance builder',tip:'buildComplianceSection() shared across markdown adapters'},
+      {id:'r1',t:'runner',x:120,y:520,title:'claude.ts',sub:'Claude Code',tip:'spawnSync with --model, --allowedTools, --agents, --settings, --append-system-prompt'},
+      {id:'r2',t:'runner',x:280,y:520,title:'openai.ts',sub:'OpenAI SDK',tip:'Generates and executes Python via OpenAI Agents SDK'},
+      {id:'r3',t:'runner',x:440,y:520,title:'gemini.ts',sub:'Gemini CLI',tip:'Writes GEMINI.md + settings, spawns gemini CLI'},
+      {id:'r4',t:'runner',x:600,y:520,title:'git.ts',sub:'git-native',tip:'Direct git-native execution without framework'},
+      {id:'r5',t:'runner',x:760,y:520,title:'+ 6 more',sub:'runners',tip:'crewai, openclaw, nanobot, lyzr, github, opencode'},
+      {id:'f1',t:'fs',x:120,y:630,title:'agent.yaml',sub:'manifest'},
+      {id:'f2',t:'fs',x:280,y:630,title:'SOUL + RULES + DUTIES',sub:'identity'},
+      {id:'f3',t:'fs',x:480,y:630,title:'skills/ + tools/',sub:'capabilities'},
+      {id:'f4',t:'fs',x:680,y:630,title:'knowledge/ + memory/',sub:'context'},
+      {id:'f5',t:'fs',x:880,y:630,title:'hooks/ + workflows/',sub:'lifecycle'},
+      {id:'f6',t:'fs',x:1080,y:630,title:'spec/schemas/',sub:'10 JSON schemas'},
+      {id:'e1',t:'ext',x:120,y:730,title:'claude CLI',sub:'Claude Code'},
+      {id:'e2',t:'ext',x:300,y:730,title:'python/openai',sub:'OpenAI SDK'},
+      {id:'e3',t:'ext',x:480,y:730,title:'gemini CLI',sub:'Gemini'},
+      {id:'e4',t:'ext',x:660,y:730,title:'npm registry',sub:'skills install'},
+      {id:'e5',t:'ext',x:840,y:730,title:'git clone',sub:'dependencies'},
+    ],
+    arrows:[
+      ['u1','c1'],['u1','c2'],['u1','c3'],['u1','c4'],['u1','c5'],['u1','c6'],['u1','c7'],['u1','c8'],['u1','c9'],
+      ['c2','l1'],['c2','l3'],['c3','a1'],['c4','l4'],['c4','l1'],
+      ['l1','f1'],['l2','f3'],['l4','e5'],
+      ['a1','l2'],['a1','f2'],['a1','f4'],
+      ['c4','r1'],['c4','r2'],['c4','r3'],['c4','r4'],
+      ['r1','a1'],['r2','a1'],['r3','a1'],
+      ['r1','e1'],['r2','e2'],['r3','e3'],['c8','e4'],
+      ['c2','f6'],
+    ]
+  },
+};
+
+function render(){
+  var wf=WF[S.wf];
+  var bp=document.getElementById('bp');
+  var la=document.getElementById('lanes');
+  var sv=document.getElementById('svg');
+
+  bp.style.minWidth=wf.w+'px';
+  bp.style.minHeight=wf.h+'px';
+  la.textContent='';
+  sv.textContent='';
+  bp.querySelectorAll('.nd').forEach(function(n){n.remove()});
+
+  wf.lanes.forEach(function(l){
+    var d=document.createElement('div');
+    d.className='sl';d.style.top=l.y+'px';d.style.height=l.h+'px';d.style.background=l.color;
+    var lb=document.createElement('div');
+    lb.className='ll';lb.textContent=l.name;lb.style.color=l.lc;
+    d.appendChild(lb);la.appendChild(d);
+  });
+
+  var nm={};
+  wf.nodes.forEach(function(n){
+    var d=document.createElement('div');
+    d.className='nd '+n.t;
+    d.style.left=n.x+'px';d.style.top=n.y+'px';
+    d.dataset.id=n.id;d.dataset.type=n.t;
+
+    var ti=document.createElement('div');ti.className='nt';ti.textContent=n.title;d.appendChild(ti);
+    if(n.sub){var su=document.createElement('div');su.className='ns';su.textContent=n.sub;d.appendChild(su);}
+
+    if(S.hl&&n.t!==S.hl)d.classList.add('dim');
+    if(S.sel===n.id)d.classList.add('hi');
+
+    d.addEventListener('mouseenter',function(e){showTT(e,n)});
+    d.addEventListener('mouseleave',hideTT);
+    d.addEventListener('click',function(){S.sel=S.sel===n.id?null:n.id;render()});
+
+    bp.appendChild(d);nm[n.id]=d;
+  });
+
+  sv.setAttribute('width',wf.w);sv.setAttribute('height',wf.h);
+  var df=document.createElementNS('http://www.w3.org/2000/svg','defs');
+  var mk=document.createElementNS('http://www.w3.org/2000/svg','marker');
+  mk.setAttribute('id','ah');mk.setAttribute('markerWidth','8');mk.setAttribute('markerHeight','6');
+  mk.setAttribute('refX','8');mk.setAttribute('refY','3');mk.setAttribute('orient','auto');
+  var pa=document.createElementNS('http://www.w3.org/2000/svg','path');
+  pa.setAttribute('d','M0,0 L8,3 L0,6');pa.setAttribute('fill','rgba(139,148,158,.6)');
+  mk.appendChild(pa);df.appendChild(mk);sv.appendChild(df);
+
+  wf.arrows.forEach(function(p){
+    var fe=nm[p[0]],te=nm[p[1]];if(!fe||!te)return;
+    var fx=fe.offsetLeft+fe.offsetWidth/2,fy=fe.offsetTop+fe.offsetHeight/2;
+    var tx=te.offsetLeft+te.offsetWidth/2,ty=te.offsetTop+te.offsetHeight/2;
+    var dx=tx-fx,dy=ty-fy,x1,y1,x2,y2;
+    if(Math.abs(dx)>Math.abs(dy)){
+      x1=dx>0?fe.offsetLeft+fe.offsetWidth:fe.offsetLeft;y1=fy;
+      x2=dx>0?te.offsetLeft:te.offsetLeft+te.offsetWidth;y2=ty;
+    }else{
+      x1=fx;y1=dy>0?fe.offsetTop+fe.offsetHeight:fe.offsetTop;
+      x2=tx;y2=dy>0?te.offsetTop:te.offsetTop+te.offsetHeight;
+    }
+    var dm=S.hl&&!fe.classList.contains(S.hl)&&!te.classList.contains(S.hl);
+    var ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',x1);ln.setAttribute('y1',y1);ln.setAttribute('x2',x2);ln.setAttribute('y2',y2);
+    ln.setAttribute('stroke',dm?'rgba(139,148,158,.06)':'rgba(139,148,158,.3)');
+    ln.setAttribute('stroke-width','1.5');ln.setAttribute('marker-end','url(#ah)');
+    sv.appendChild(ln);
+  });
+
+  updPrompt();renderFiles();renderAdapters();updPresets();
+}
+
+function renderFiles(){
+  var p=document.getElementById('filePanel');p.textContent='';
+  AGENT_FILES.forEach(function(f){
+    var d=document.createElement('div');d.className='sf'+(S.selFile===f.name?' on':'');
+    var n=document.createElement('div');n.className='fn';n.textContent=f.name;d.appendChild(n);
+    var ds=document.createElement('div');ds.className='fd';ds.textContent=f.desc;d.appendChild(ds);
+    var ff=document.createElement('div');ff.className='ff';ff.textContent=f.fields;d.appendChild(ff);
+    d.addEventListener('click',function(){S.selFile=S.selFile===f.name?null:f.name;render()});
+    p.appendChild(d);
+  });
+}
+
+function renderAdapters(){
+  var p=document.getElementById('adapterPanel');p.textContent='';
+  ADAPTERS.forEach(function(a){
+    var d=document.createElement('div');d.className='sf';
+    var n=document.createElement('div');n.className='fn';n.textContent=a.name;d.appendChild(n);
+    var ds=document.createElement('div');ds.className='fd';ds.textContent=a.desc;d.appendChild(ds);
+    p.appendChild(d);
+  });
+}
+
+function showTT(e,n){
+  var t=document.getElementById('tt');t.textContent='';
+  var h=document.createElement('div');h.className='t1';h.textContent=n.title;t.appendChild(h);
+  var b=document.createElement('div');b.className='t2';b.textContent=n.tip||n.sub||'';t.appendChild(b);
+  t.style.display='block';
+  var r=t.getBoundingClientRect();
+  t.style.left=Math.min(e.clientX+12,window.innerWidth-r.width-20)+'px';
+  t.style.top=Math.min(e.clientY+12,window.innerHeight-r.height-20)+'px';
+}
+function hideTT(){document.getElementById('tt').style.display='none'}
+
+function updPrompt(){
+  var wf=WF[S.wf];
+  var parts=['gitagent "'+wf.title+'"'];
+  if(S.hl)parts.push('highlighting '+S.hl+' layer');
+  if(S.sel){var n=wf.nodes.find(function(x){return x.id===S.sel});if(n)parts.push('- "'+n.title+'": '+(n.tip||n.sub));}
+  if(S.selFile){var f=AGENT_FILES.find(function(x){return x.name===S.selFile});if(f)parts.push('\n\n'+f.name+': '+f.desc+'. Fields: '+f.fields.replace(/\n/g,', '));}
+  document.getElementById('prompt').textContent=parts.join(' ');
+}
+
+var PRESETS={
+  'data-flow':{wf:'run',hl:null},
+  'adapters':{wf:'export',hl:'adapter'},
+  'validation':{wf:'validate',hl:'schema'},
+  'compliance':{wf:'audit',hl:null},
+};
+
+function updPresets(){
+  document.querySelectorAll('.pb').forEach(function(b){
+    var p=PRESETS[b.dataset.p];
+    b.classList.toggle('on',p&&S.wf===p.wf&&S.hl===p.hl);
+  });
+}
+
+document.getElementById('wfSel').addEventListener('change',function(e){S.wf=e.target.value;S.sel=null;S.hl=null;render()});
+document.querySelectorAll('.pb').forEach(function(b){b.addEventListener('click',function(){var p=PRESETS[b.dataset.p];if(p){S.wf=p.wf;S.hl=p.hl;S.sel=null;document.getElementById('wfSel').value=p.wf;render()}})});
+document.querySelectorAll('.li').forEach(function(i){i.addEventListener('click',function(){var h=i.dataset.hl;S.hl=S.hl===h?null:h;document.querySelectorAll('.li').forEach(function(x){x.classList.toggle('hl',x.dataset.hl===S.hl)});render()})});
+document.getElementById('copyBtn').addEventListener('click',function(){var t=document.getElementById('prompt').textContent;navigator.clipboard.writeText(t).then(function(){var b=document.getElementById('copyBtn');b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500)})});
+
+render();
+</script>
+</body>
+</html>

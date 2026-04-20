@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gitagent — Install & Run Decisioning Workflow</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --dim: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --orange: #d29922; --red: #f85149;
+    --purple: #bc8cff; --cyan: #39d353; --pink: #f778ba;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header .tag { font-size: 11px; background: #1f6feb33; color: var(--accent); padding: 2px 8px; border-radius: 10px; }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  .sidebar { width: 280px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; overflow-y: auto; }
+  .sidebar section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .sidebar h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--dim); margin-bottom: 10px; }
+  .sidebar label { display: block; font-size: 13px; margin-bottom: 8px; cursor: pointer; }
+  .sidebar label input { margin-right: 6px; accent-color: var(--accent); }
+  .sidebar select, .sidebar button { width: 100%; padding: 7px 10px; font-size: 13px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; margin-bottom: 6px; }
+  .sidebar button { background: #1f6feb22; border-color: var(--accent); color: var(--accent); font-weight: 500; }
+  .sidebar button:hover { background: #1f6feb44; }
+
+  .preset-btn { display: inline-block; padding: 4px 10px; font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--dim); cursor: pointer; margin: 0 4px 6px 0; width: auto !important; }
+  .preset-btn:hover, .preset-btn.active { border-color: var(--accent); color: var(--accent); background: #1f6feb22; }
+
+  .canvas-wrap { flex: 1; position: relative; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  .tooltip { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 12px; max-width: 280px; pointer-events: none; display: none; z-index: 10; box-shadow: 0 4px 16px #00000066; line-height: 1.5; }
+  .tooltip .tt-title { font-weight: 600; margin-bottom: 4px; }
+  .tooltip .tt-cmd { font-family: 'SF Mono', Menlo, monospace; font-size: 11px; background: var(--bg); padding: 2px 6px; border-radius: 3px; display: inline-block; margin-top: 4px; }
+
+  .prompt-bar { border-top: 1px solid var(--border); background: var(--surface); padding: 12px 20px; flex-shrink: 0; display: flex; align-items: flex-start; gap: 12px; max-height: 180px; }
+  .prompt-bar pre { flex: 1; font-family: 'SF Mono', Menlo, monospace; font-size: 12px; color: var(--dim); white-space: pre-wrap; line-height: 1.5; overflow-y: auto; max-height: 150px; }
+  .copy-btn { padding: 6px 14px; font-size: 12px; background: var(--accent); color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; flex-shrink: 0; }
+  .copy-btn:hover { opacity: .85; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 6px 0; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--dim); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gitagent — Install & Run Workflow</h1>
+  <span class="tag">v0.1.8</span>
+  <span class="tag">Interactive</span>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <section>
+      <h3>Presets</h3>
+      <button class="preset-btn active" data-preset="quickstart">Quickstart</button>
+      <button class="preset-btn" data-preset="import">Import Existing</button>
+      <button class="preset-btn" data-preset="compliance">Compliance</button>
+      <button class="preset-btn" data-preset="remote">Run Remote</button>
+      <button class="preset-btn" data-preset="full">Full Journey</button>
+    </section>
+
+    <section>
+      <h3>Installation</h3>
+      <label><input type="radio" name="install" value="global" checked> npm install -g (global)</label>
+      <label><input type="radio" name="install" value="npx"> npx (no install)</label>
+      <label><input type="radio" name="install" value="local"> npm install (local dev)</label>
+    </section>
+
+    <section>
+      <h3>Agent Source</h3>
+      <label><input type="radio" name="source" value="init" checked> gitagent init (new agent)</label>
+      <label><input type="radio" name="source" value="import"> gitagent import (convert)</label>
+      <label><input type="radio" name="source" value="clone"> git clone (existing repo)</label>
+      <label><input type="radio" name="source" value="remote"> Remote URL (run --repo)</label>
+    </section>
+
+    <section>
+      <h3>Init Template</h3>
+      <select id="template">
+        <option value="minimal">minimal — agent.yaml + SOUL.md</option>
+        <option value="standard" selected>standard — + skills, knowledge</option>
+        <option value="full">full — + compliance, hooks, workflows</option>
+      </select>
+    </section>
+
+    <section>
+      <h3>Import Format</h3>
+      <select id="importFormat">
+        <option value="claude">Claude Code (CLAUDE.md)</option>
+        <option value="cursor">Cursor (.cursorrules)</option>
+        <option value="gemini">Gemini (GEMINI.md)</option>
+        <option value="codex">Codex (AGENTS.md)</option>
+        <option value="crewai">CrewAI (crew.yaml)</option>
+        <option value="opencode">OpenCode (AGENTS.md)</option>
+      </select>
+    </section>
+
+    <section>
+      <h3>Workflow Steps</h3>
+      <label><input type="checkbox" id="stepValidate" checked> Validate</label>
+      <label><input type="checkbox" id="stepExport" checked> Export</label>
+      <label><input type="checkbox" id="stepRun" checked> Run</label>
+      <label><input type="checkbox" id="stepAudit"> Compliance Audit</label>
+      <label><input type="checkbox" id="stepInstallDeps"> Install Dependencies</label>
+    </section>
+
+    <section>
+      <h3>Export Format</h3>
+      <select id="exportFormat">
+        <option value="claude-code">Claude Code</option>
+        <option value="system-prompt">System Prompt</option>
+        <option value="openai">OpenAI</option>
+        <option value="gemini">Gemini</option>
+        <option value="codex">Codex</option>
+        <option value="copilot">Copilot</option>
+        <option value="cursor">Cursor</option>
+        <option value="crewai">CrewAI</option>
+        <option value="github">GitHub</option>
+        <option value="lyzr">Lyzr</option>
+      </select>
+    </section>
+
+    <section>
+      <h3>Run Adapter</h3>
+      <select id="runAdapter">
+        <option value="claude">Claude</option>
+        <option value="openai">OpenAI</option>
+        <option value="gemini">Gemini</option>
+        <option value="crewai">CrewAI</option>
+        <option value="prompt">Prompt (stdout)</option>
+        <option value="git">Git (raw)</option>
+      </select>
+    </section>
+
+    <section>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div> Install</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div> Create/Source</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div> Verify</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div> Transform</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f778ba"></div> Execute</div>
+      </div>
+    </section>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+</div>
+
+<div class="prompt-bar">
+  <pre id="promptOutput">Loading...</pre>
+  <button class="copy-btn" id="copyBtn">Copy</button>
+</div>
+
+<script>
+const C = document.getElementById('canvas');
+const ctx = C.getContext('2d');
+const tooltipEl = document.getElementById('tooltip');
+const promptEl = document.getElementById('promptOutput');
+const dpr = window.devicePixelRatio || 1;
+let W, H;
+
+function resize() {
+  const r = C.parentElement.getBoundingClientRect();
+  W = r.width; H = r.height;
+  C.width = W * dpr; C.height = H * dpr;
+  C.style.width = W + 'px'; C.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', function() { resize(); layoutNodes(); draw(); });
+
+// State
+const state = {
+  install: 'global', source: 'init', template: 'standard',
+  importFormat: 'claude', exportFormat: 'claude-code', runAdapter: 'claude',
+  stepValidate: true, stepExport: true, stepRun: true, stepAudit: false, stepInstallDeps: false
+};
+
+function readState() {
+  state.install = document.querySelector('input[name="install"]:checked').value;
+  state.source = document.querySelector('input[name="source"]:checked').value;
+  state.template = document.getElementById('template').value;
+  state.importFormat = document.getElementById('importFormat').value;
+  state.exportFormat = document.getElementById('exportFormat').value;
+  state.runAdapter = document.getElementById('runAdapter').value;
+  state.stepValidate = document.getElementById('stepValidate').checked;
+  state.stepExport = document.getElementById('stepExport').checked;
+  state.stepRun = document.getElementById('stepRun').checked;
+  state.stepAudit = document.getElementById('stepAudit').checked;
+  state.stepInstallDeps = document.getElementById('stepInstallDeps').checked;
+}
+
+// Node definitions
+const NW = 200, NH = 64, R = 10;
+const CATEGORIES = { install: '#58a6ff', create: '#3fb950', verify: '#d29922', transform: '#bc8cff', execute: '#f778ba' };
+
+const NODE_TIPS = {
+  'npm-global':   { title: 'npm install -g', lines: ['Install the CLI globally so gitagent is available everywhere.', 'npm install -g @open-gitagent/gitagent'] },
+  'npx':          { title: 'npx (no install)', lines: ['Use npx to run gitagent commands without a global install.', 'npx @open-gitagent/gitagent init'] },
+  'npm-local':    { title: 'npm install (local)', lines: ['Install as a project dependency for CI/CD.', 'npm install -D @open-gitagent/gitagent'] },
+  'init':         { title: 'gitagent init', lines: ['Creates agent.yaml, SOUL.md, and optional extras based on template.', 'gitagent init --template standard', 'Templates: minimal, standard, full'] },
+  'import':       { title: 'gitagent import', lines: ['Import an existing agent definition from another framework.', 'gitagent import --from claude ./path', 'Supports: claude, cursor, gemini, codex, crewai, opencode'] },
+  'clone':        { title: 'git clone', lines: ['Clone a git repository that already contains a gitagent definition.', 'git clone https://github.com/user/agent.git'] },
+  'edit':         { title: 'Edit agent files', lines: ['Customize your agent:', 'agent.yaml — manifest (name, model, skills, tools)', 'SOUL.md — identity & personality', 'RULES.md — constraints', 'skills/*/SKILL.md — capabilities'] },
+  'install-deps': { title: 'gitagent install', lines: ['Install sub-agent dependencies declared in agent.yaml.', 'gitagent install', 'Clones git deps to .gitagent/deps/'] },
+  'validate':     { title: 'gitagent validate', lines: ['Validates agent.yaml schema, checks SOUL.md exists, verifies skills/tools references.', 'gitagent validate', 'Add --compliance for regulatory checks.'] },
+  'audit':        { title: 'gitagent audit', lines: ['Generate detailed compliance audit across 10 sections:', 'FINRA 3110/4511, SEC 17a-4, SR 11-7, Reg S-P', 'gitagent audit'] },
+  'export':       { title: 'gitagent export', lines: ['Export agent definition to a target framework format.', 'gitagent export --format claude-code', '13 formats: claude-code, openai, gemini, codex, copilot, cursor, crewai, etc.'] },
+  'info':         { title: 'gitagent info', lines: ['Pretty-print the agent manifest — name, model, skills, tools, compliance.', 'gitagent info'] },
+  'run':          { title: 'gitagent run', lines: ['Run the agent using a framework adapter.', 'gitagent run --adapter claude --prompt "Hello"', 'Adapters: claude, openai, gemini, crewai, prompt, git'] },
+  'run-remote':   { title: 'gitagent run --repo', lines: ['Run an agent directly from a git URL — clones, caches, and executes.', 'gitagent run --repo https://github.com/user/agent --adapter claude', 'Use --refresh to re-clone, --no-cache for temp.'] }
+};
+
+const ALL_NODES = [
+  { id: 'npm-global',    cat: 'install',   label: 'npm install -g',        sub: '@open-gitagent/gitagent' },
+  { id: 'npx',           cat: 'install',   label: 'npx (no install)',      sub: 'Run without installing' },
+  { id: 'npm-local',     cat: 'install',   label: 'npm install (local)',   sub: 'Add as devDependency' },
+  { id: 'init',          cat: 'create',    label: 'gitagent init',         sub: 'Scaffold new agent' },
+  { id: 'import',        cat: 'create',    label: 'gitagent import',       sub: 'Convert from framework' },
+  { id: 'clone',         cat: 'create',    label: 'git clone',             sub: 'Existing agent repo' },
+  { id: 'edit',          cat: 'create',    label: 'Edit agent files',      sub: 'agent.yaml + SOUL.md + ...' },
+  { id: 'install-deps',  cat: 'verify',    label: 'gitagent install',      sub: 'Resolve dependencies' },
+  { id: 'validate',      cat: 'verify',    label: 'gitagent validate',     sub: 'Check configuration' },
+  { id: 'audit',         cat: 'verify',    label: 'gitagent audit',        sub: 'Compliance report' },
+  { id: 'export',        cat: 'transform', label: 'gitagent export',       sub: 'Framework-specific output' },
+  { id: 'info',          cat: 'transform', label: 'gitagent info',         sub: 'Display agent summary' },
+  { id: 'run',           cat: 'execute',   label: 'gitagent run',          sub: 'Execute with adapter' },
+  { id: 'run-remote',    cat: 'execute',   label: 'gitagent run --repo',   sub: 'Run from remote URL' }
+];
+
+let nodes = [];
+let edges = [];
+let hoveredNode = null;
+let dragNode = null;
+let dragOff = { x: 0, y: 0 };
+
+function getActiveNodeIds() {
+  const ids = new Set();
+  if (state.install === 'global') ids.add('npm-global');
+  else if (state.install === 'npx') ids.add('npx');
+  else ids.add('npm-local');
+
+  if (state.source === 'init') { ids.add('init'); ids.add('edit'); }
+  else if (state.source === 'import') { ids.add('import'); ids.add('edit'); }
+  else if (state.source === 'clone') { ids.add('clone'); ids.add('edit'); }
+  else if (state.source === 'remote') { ids.add('run-remote'); }
+
+  if (state.stepInstallDeps && state.source !== 'remote') ids.add('install-deps');
+  if (state.stepValidate && state.source !== 'remote') ids.add('validate');
+  if (state.stepAudit && state.source !== 'remote') ids.add('audit');
+  if (state.stepExport && state.source !== 'remote') ids.add('export');
+  if (state.source !== 'remote') ids.add('info');
+  if (state.stepRun && state.source !== 'remote') ids.add('run');
+
+  return ids;
+}
+
+function buildEdges(activeIds) {
+  var e = [];
+  var has = function(id) { return activeIds.has(id); };
+  var installId = state.install === 'global' ? 'npm-global' : state.install === 'npx' ? 'npx' : 'npm-local';
+
+  if (state.source === 'init' && has(installId)) e.push([installId, 'init']);
+  if (state.source === 'import' && has(installId)) e.push([installId, 'import']);
+  if (state.source === 'clone' && has(installId)) e.push([installId, 'clone']);
+  if (state.source === 'remote' && has(installId)) e.push([installId, 'run-remote']);
+
+  if (has('init') && has('edit')) e.push(['init', 'edit']);
+  if (has('import') && has('edit')) e.push(['import', 'edit']);
+  if (has('clone') && has('edit')) e.push(['clone', 'edit']);
+
+  var afterEdit = has('edit') ? 'edit' : (has('clone') ? 'clone' : null);
+  if (afterEdit) {
+    if (has('install-deps')) e.push([afterEdit, 'install-deps']);
+    if (has('validate')) e.push([has('install-deps') ? 'install-deps' : afterEdit, 'validate']);
+    if (has('audit') && has('validate')) e.push(['validate', 'audit']);
+    if (has('export')) e.push([has('validate') ? 'validate' : afterEdit, 'export']);
+    if (has('info')) e.push([has('validate') ? 'validate' : afterEdit, 'info']);
+    if (has('run')) {
+      if (has('export')) e.push(['export', 'run']);
+      else if (has('validate')) e.push(['validate', 'run']);
+      else e.push([afterEdit, 'run']);
+    }
+  }
+  return e;
+}
+
+function layoutNodes() {
+  var activeIds = getActiveNodeIds();
+  var activeList = ALL_NODES.filter(function(n) { return activeIds.has(n.id); });
+
+  var colOrder = ['install', 'create', 'verify', 'transform', 'execute'];
+  var colLabelsMap = { install: 'INSTALL', create: 'CREATE / SOURCE', verify: 'VERIFY', transform: 'TRANSFORM', execute: 'EXECUTE' };
+  var cols = {};
+  activeList.forEach(function(n) {
+    var ci = colOrder.indexOf(n.cat);
+    if (!cols[ci]) cols[ci] = [];
+    cols[ci].push(n);
+  });
+
+  var usedCols = Object.keys(cols).map(Number).sort(function(a, b) { return a - b; });
+  var totalCols = usedCols.length;
+  var gapX = Math.min((W - 40) / totalCols, 240);
+  var startX = (W - (totalCols - 1) * gapX) / 2;
+
+  // Remember old positions for stability
+  var oldPos = {};
+  nodes.forEach(function(n) { oldPos[n.id] = { x: n.x, y: n.y }; });
+
+  nodes = [];
+  usedCols.forEach(function(ci, xi) {
+    var list = cols[ci];
+    var totalH = list.length * NH + (list.length - 1) * 24;
+    var startY = (H - totalH) / 2;
+    list.forEach(function(def, yi) {
+      var old = oldPos[def.id];
+      nodes.push({
+        id: def.id, cat: def.cat, label: def.label, sub: def.sub,
+        x: old ? old.x : startX + xi * gapX,
+        y: old ? old.y : startY + yi * (NH + 24),
+        active: true
+      });
+    });
+  });
+
+  edges = buildEdges(activeIds);
+}
+
+// Drawing
+function drawRoundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+function drawNode(n) {
+  var col = CATEGORIES[n.cat] || '#8b949e';
+  var x = n.x - NW / 2, y = n.y - NH / 2;
+  var isHov = hoveredNode && hoveredNode.id === n.id;
+
+  ctx.shadowColor = col + '44';
+  ctx.shadowBlur = isHov ? 20 : 8;
+  ctx.shadowOffsetY = 2;
+
+  drawRoundRect(x, y, NW, NH, R);
+  ctx.fillStyle = isHov ? col + '22' : '#0d1117';
+  ctx.fill();
+  ctx.strokeStyle = isHov ? col : col + '88';
+  ctx.lineWidth = isHov ? 2 : 1;
+  ctx.stroke();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+  // Category dot
+  ctx.beginPath();
+  ctx.arc(x + 14, y + NH / 2, 4, 0, Math.PI * 2);
+  ctx.fillStyle = col;
+  ctx.fill();
+
+  // Label
+  ctx.fillStyle = '#e6edf3';
+  ctx.font = '600 13px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(n.label, x + 26, y + NH / 2 - 8);
+
+  // Subtitle
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText(n.sub, x + 26, y + NH / 2 + 10);
+}
+
+function drawEdge(from, to) {
+  var fn = nodes.find(function(n) { return n.id === from; });
+  var tn = nodes.find(function(n) { return n.id === to; });
+  if (!fn || !tn) return;
+
+  var sx = fn.x + NW / 2, sy = fn.y;
+  var ex = tn.x - NW / 2, ey = tn.y;
+  var col = CATEGORIES[tn.cat] || '#8b949e';
+
+  ctx.beginPath();
+  var cpx = (sx + ex) / 2;
+  ctx.moveTo(sx, sy);
+  ctx.bezierCurveTo(cpx, sy, cpx, ey, ex, ey);
+  ctx.strokeStyle = col + '55';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Arrow
+  var angle = Math.atan2(ey - sy, ex - sx);
+  var ax = ex - 2, ay = ey;
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(ax - 8 * Math.cos(angle - .4), ay - 8 * Math.sin(angle - .4));
+  ctx.lineTo(ax - 8 * Math.cos(angle + .4), ay - 8 * Math.sin(angle + .4));
+  ctx.closePath();
+  ctx.fillStyle = col + '88';
+  ctx.fill();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid dots
+  ctx.fillStyle = '#21262d';
+  for (var x = 20; x < W; x += 30)
+    for (var y = 20; y < H; y += 30) {
+      ctx.beginPath(); ctx.arc(x, y, .7, 0, Math.PI * 2); ctx.fill();
+    }
+
+  edges.forEach(function(e) { drawEdge(e[0], e[1]); });
+  nodes.forEach(function(n) { drawNode(n); });
+
+  // Stage labels
+  var colOrder = ['install', 'create', 'verify', 'transform', 'execute'];
+  var colLabels = ['INSTALL', 'CREATE / SOURCE', 'VERIFY', 'TRANSFORM', 'EXECUTE'];
+  var usedCats = [];
+  var seen = {};
+  nodes.forEach(function(n) { if (!seen[n.cat]) { seen[n.cat] = true; usedCats.push(n.cat); } });
+  var totalCols = usedCats.length;
+  var gapX = Math.min((W - 40) / totalCols, 240);
+  var startX = (W - (totalCols - 1) * gapX) / 2;
+
+  ctx.font = '600 10px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  usedCats.forEach(function(cat, i) {
+    var ci = colOrder.indexOf(cat);
+    ctx.fillStyle = CATEGORIES[cat] + '66';
+    ctx.fillText(colLabels[ci], startX + i * gapX, 24);
+  });
+}
+
+// Tooltip using safe DOM methods
+function showTooltip(node, mx, my) {
+  var tip = NODE_TIPS[node.id];
+  if (!tip) { tooltipEl.style.display = 'none'; return; }
+
+  // Clear previous content
+  while (tooltipEl.firstChild) tooltipEl.removeChild(tooltipEl.firstChild);
+
+  var titleDiv = document.createElement('div');
+  titleDiv.className = 'tt-title';
+  titleDiv.textContent = tip.title;
+  tooltipEl.appendChild(titleDiv);
+
+  tip.lines.forEach(function(line, i) {
+    if (i > 0 || true) {
+      // First line is description, rest may be commands
+      var isCmd = /^[a-z]/.test(line) && (line.indexOf('gitagent') === 0 || line.indexOf('npm ') === 0 || line.indexOf('npx ') === 0 || line.indexOf('git ') === 0);
+      if (isCmd) {
+        var cmdSpan = document.createElement('span');
+        cmdSpan.className = 'tt-cmd';
+        cmdSpan.textContent = line;
+        tooltipEl.appendChild(document.createElement('br'));
+        tooltipEl.appendChild(cmdSpan);
+      } else {
+        var textNode = document.createTextNode(line);
+        if (i > 0) tooltipEl.appendChild(document.createElement('br'));
+        tooltipEl.appendChild(textNode);
+      }
+    }
+  });
+
+  var tx = mx + 16, ty = my + 16;
+  if (tx + 280 > W) tx = mx - 296;
+  if (ty + 140 > H) ty = my - 140;
+  tooltipEl.style.left = tx + 'px';
+  tooltipEl.style.top = ty + 'px';
+  tooltipEl.style.display = 'block';
+}
+
+// Interaction
+function hitTest(mx, my) {
+  for (var i = nodes.length - 1; i >= 0; i--) {
+    var n = nodes[i];
+    if (mx > n.x - NW/2 && mx < n.x + NW/2 && my > n.y - NH/2 && my < n.y + NH/2) return n;
+  }
+  return null;
+}
+
+C.addEventListener('mousemove', function(e) {
+  var rect = C.getBoundingClientRect();
+  var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+  if (dragNode) {
+    dragNode.x = mx - dragOff.x;
+    dragNode.y = my - dragOff.y;
+    draw();
+    return;
+  }
+
+  var hit = hitTest(mx, my);
+  if (hit !== hoveredNode) {
+    hoveredNode = hit;
+    C.style.cursor = hit ? 'grab' : 'default';
+    if (hit) {
+      showTooltip(hit, mx, my);
+    } else {
+      tooltipEl.style.display = 'none';
+    }
+    draw();
+  } else if (hit) {
+    var tx = mx + 16, ty = my + 16;
+    if (tx + 280 > W) tx = mx - 296;
+    if (ty + 140 > H) ty = my - 140;
+    tooltipEl.style.left = tx + 'px';
+    tooltipEl.style.top = ty + 'px';
+  }
+});
+
+C.addEventListener('mousedown', function(e) {
+  var rect = C.getBoundingClientRect();
+  var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  var hit = hitTest(mx, my);
+  if (hit) {
+    dragNode = hit;
+    dragOff = { x: mx - hit.x, y: my - hit.y };
+    C.style.cursor = 'grabbing';
+    tooltipEl.style.display = 'none';
+  }
+});
+
+C.addEventListener('mouseup', function() {
+  dragNode = null;
+  C.style.cursor = hoveredNode ? 'grab' : 'default';
+});
+
+C.addEventListener('mouseleave', function() {
+  hoveredNode = null;
+  tooltipEl.style.display = 'none';
+  draw();
+});
+
+// Event delegation for sidebar controls
+document.querySelector('.sidebar').addEventListener('change', function() { updateAll(); });
+
+// Preset buttons
+document.querySelectorAll('.preset-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    applyPreset(btn.getAttribute('data-preset'));
+  });
+});
+
+var presets = {
+  quickstart:  { install: 'global', source: 'init', template: 'minimal', stepValidate: true, stepExport: false, stepRun: true, stepAudit: false, stepInstallDeps: false },
+  import:      { install: 'global', source: 'import', template: 'standard', stepValidate: true, stepExport: true, stepRun: true, stepAudit: false, stepInstallDeps: false },
+  compliance:  { install: 'global', source: 'init', template: 'full', stepValidate: true, stepExport: true, stepRun: true, stepAudit: true, stepInstallDeps: false },
+  remote:      { install: 'npx', source: 'remote', template: 'standard', stepValidate: false, stepExport: false, stepRun: false, stepAudit: false, stepInstallDeps: false },
+  full:        { install: 'global', source: 'init', template: 'full', stepValidate: true, stepExport: true, stepRun: true, stepAudit: true, stepInstallDeps: true }
+};
+
+function applyPreset(name) {
+  var p = presets[name];
+  document.querySelector('input[name="install"][value="' + p.install + '"]').checked = true;
+  document.querySelector('input[name="source"][value="' + p.source + '"]').checked = true;
+  document.getElementById('template').value = p.template;
+  document.getElementById('stepValidate').checked = p.stepValidate;
+  document.getElementById('stepExport').checked = p.stepExport;
+  document.getElementById('stepRun').checked = p.stepRun;
+  document.getElementById('stepAudit').checked = p.stepAudit;
+  document.getElementById('stepInstallDeps').checked = p.stepInstallDeps;
+  updateAll();
+}
+
+// Prompt output
+function updatePrompt() {
+  var parts = [];
+  var cmd = state.install === 'npx' ? 'npx @open-gitagent/gitagent' : 'gitagent';
+
+  if (state.install === 'global') parts.push('npm install -g @open-gitagent/gitagent');
+  else if (state.install === 'local') parts.push('npm install -D @open-gitagent/gitagent');
+
+  if (state.source === 'init') {
+    parts.push(cmd + ' init --template ' + state.template);
+    parts.push('# Edit agent.yaml, SOUL.md, and other files');
+  } else if (state.source === 'import') {
+    parts.push(cmd + ' import --from ' + state.importFormat + ' ./path-to-project');
+    parts.push('# Review and customize imported files');
+  } else if (state.source === 'clone') {
+    parts.push('git clone <agent-repo-url> && cd <agent-dir>');
+  } else if (state.source === 'remote') {
+    parts.push(cmd + ' run --repo <git-url> --adapter ' + state.runAdapter + ' --prompt "Your prompt"');
+    promptEl.textContent = parts.join('\n');
+    return;
+  }
+
+  if (state.stepInstallDeps) parts.push(cmd + ' install');
+  if (state.stepValidate) parts.push(cmd + ' validate' + (state.stepAudit ? ' --compliance' : ''));
+  if (state.stepAudit) parts.push(cmd + ' audit');
+  if (state.stepExport) parts.push(cmd + ' export --format ' + state.exportFormat);
+  if (state.stepRun) parts.push(cmd + ' run --adapter ' + state.runAdapter + ' --prompt "Your prompt"');
+
+  promptEl.textContent = parts.join('\n');
+}
+
+document.getElementById('copyBtn').addEventListener('click', function() {
+  navigator.clipboard.writeText(promptEl.textContent).then(function() {
+    var btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+  });
+});
+
+// Main update
+function updateAll() {
+  readState();
+  layoutNodes();
+  draw();
+  updatePrompt();
+}
+
+// Init
+resize();
+updateAll();
+</script>
+</body>
+</html>
