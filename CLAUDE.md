@@ -80,3 +80,78 @@ Only `agent.yaml` + `SOUL.md` are required. The manifest (`agent.yaml`) is the o
 ## Schemas
 
 10 JSON Schema files in `spec/schemas/` validate agent definitions. The primary schema is `agent-yaml.schema.json`. Others cover skills, tools, knowledge, memory, hooks, config, compliance, workflows, and marketplace entries.
+
+---
+
+## Handoff: Session 1 — 2026-04-20
+
+### TL;DR
+
+**Project**: gitagent — git-native AI agent definition standard with CLI for validation, export, and execution across 14 frameworks.
+
+**Status**: CLAUDE.md created, codebase documented, git worktree structure initialized for dev workflow.
+
+**Immediate Next Step**: Begin development work in the `DEV-IT-0` or `DEV-IT-1` worktree.
+
+### Accomplishments
+
+1. **Created CLAUDE.md** — Analyzed the full codebase (commands, adapters, runners, utils, schemas) and wrote project-level documentation covering build commands, architecture, data flow, conventions, and gotchas (AJV ESM workaround, stale version string, git cache location, registry `gh` dependency).
+
+2. **Committed and pushed all pending work** — 85 files (codebase mapping docs, example agent docs, gitagent-helper agent, service blueprint HTMLs, planning config) committed as `6358b9a` and pushed to `origin/main` (35 total commits).
+
+3. **Set up git worktree structure** for development:
+
+| Worktree | Path | Branch | Based on |
+|----------|------|--------|----------|
+| Main | `16_GITAGENT/` | `main` | — |
+| DEV-IT-0 | `16_GITAGENT-DEV-IT-0/` | `DEV-IT-0` | `DEV` |
+| DEV-IT-1 | `16_GITAGENT-DEV-IT-1/` | `DEV-IT-1` | `DEV-IT-0` |
+
+### Branch Structure
+
+```
+main (6358b9a) — pushed to origin
+└── DEV (same commit, no worktree)
+    └── DEV-IT-0 (worktree at ../16_GITAGENT-DEV-IT-0/)
+        └── DEV-IT-1 (worktree at ../16_GITAGENT-DEV-IT-1/)
+```
+
+`DEV` exists as a branch but has no worktree — it serves as the base for the iteration branches.
+
+### Technical Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Worktrees placed as sibling dirs (`16_GITAGENT-DEV-IT-*`) | Keeps project root clean, consistent with existing `01-PROJECTS/` layout |
+| `DEV` branch without worktree | Acts as stable integration branch; worktrees are for active iteration |
+| CLAUDE.md includes "Gotchas" section | Documents non-obvious pitfalls (AJV ESM, stale version, registry gh dep) that waste time if discovered ad-hoc |
+
+### How to Continue
+
+```bash
+# Switch to a dev worktree
+cd /Users/vincentelbotte/Documents/01-PROJECTS/16_GITAGENT-DEV-IT-0
+
+# Build and test
+npm run build && npm test
+
+# List worktrees from any worktree
+git worktree list
+
+# Merge iteration work back
+git checkout DEV && git merge DEV-IT-0
+```
+
+### Known Issues
+
+- [ ] `src/index.ts` version hardcoded to `0.1.0` (should match `package.json` `0.1.8`)
+- [ ] `lyzr.ts` and `github.ts` not re-exported from `src/adapters/index.ts` (inconsistent with other adapters)
+- [ ] Compliance logic duplicated between `shared.ts` and `system-prompt.ts`
+- [ ] Test coverage minimal (2 test files out of ~15 adapters)
+
+### Session Metadata
+
+- **Date**: 2026-04-20
+- **Working Directory**: `/Users/vincentelbotte/Documents/01-PROJECTS/16_GITAGENT`
+- **Agent Model**: Claude Opus 4.6 (1M context)
+- **Key Files Modified**: `CLAUDE.md`, `.gitignore`, `architect-agent/memory/memory.md` + 82 new files
