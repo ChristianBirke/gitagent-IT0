@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { mkdirSync, writeFileSync, existsSync, readFileSync, appendFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { success, error, info, heading } from '../utils/format.js';
 
 interface InitOptions {
@@ -330,6 +330,7 @@ function createDir(path: string): void {
 }
 
 function createFile(path: string, content: string): void {
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, 'utf-8');
 }
 
